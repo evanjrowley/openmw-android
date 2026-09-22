@@ -41,16 +41,15 @@
 
           androidSdk = (pkgs.androidenv.composeAndroidPackages {
             includeNDK = true;
-            # NDK r26d — C++20-capable (clang 17). Upstream OpenMW's Android CI
-            # pins r22; r26 is newer and drops r22's ANDROID_LD=deprecated.
-            ndkVersions = [ "26.3.11579264" ];
+            # NDK r28.2 (LLVM 19) — full C++20 including std::format;
+            ndkVersions = [ "28.2.13676358" ];
             buildToolsVersions = [ "34.0.0" ];
             platformVersions = [ "34" ];
             # Host cmake comes from nixpkgs (newer than the SDK copy).
             includeCmake = false;
           }).androidsdk;
 
-          ndkVersion = "26.3.11579264";
+          ndkVersion = "28.2.13676358";
         in
         {
           default = pkgs.mkShell {

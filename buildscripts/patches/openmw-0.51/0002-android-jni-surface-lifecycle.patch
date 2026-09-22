@@ -1,0 +1,130 @@
+diff --git a/apps/openmw/androidmain.cpp b/apps/openmw/androidmain.cpp
+index ade009ae07..9b36c60b57 100644
+--- a/apps/openmw/androidmain.cpp
++++ b/apps/openmw/androidmain.cpp
+@@ -7,6 +7,8 @@ int stderr = 0; // Hack: fix linker error
+ #include <SDL_gamecontroller.h>
+ #include <SDL_mouse.h>
+ 
++#include <algorithm>
++
+ /*******************************************************************************
+  Functions called by JNI
+  *******************************************************************************/
+@@ -38,17 +40,55 @@ extern "C" int Java_org_libsdl_app_SDLActivity_isMouseShown(JNIEnv* env, jclass
+     return SDL_ShowCursor(SDL_QUERY);
+ }
+ 
+-extern SDL_Window* Android_Window;
+-extern "C" int SDL_SendMouseMotion(SDL_Window* window, int mouseID, int relative, int x, int y);
++// SDL 2.30 no longer exports SDL_SendMouseMotion/SDL_SendMouseButton or
++// Android_Window; inject synthetic events through the public SDL_PushEvent.
++static SDL_Window* omwWindow()
++{
++    SDL_Window* win = SDL_GetKeyboardFocus();
++    if (!win)
++        win = SDL_GetWindowFromID(1);
++    return win;
++}
++
+ extern "C" void Java_org_libsdl_app_SDLActivity_sendRelativeMouseMotion(JNIEnv* env, jclass cls, int x, int y)
+ {
+-    SDL_SendMouseMotion(Android_Window, 0, 1, x, y);
++    SDL_Window* win = omwWindow();
++    if (!win)
++        return;
++
++    static int px = 0;
++    static int py = 0;
++    int w = 0;
++    int h = 0;
++    SDL_GetWindowSize(win, &w, &h);
++    px = std::min(std::max(px + x, 0), w > 0 ? w - 1 : 0);
++    py = std::min(std::max(py + y, 0), h > 0 ? h - 1 : 0);
++
++    SDL_Event ev;
++    SDL_memset(&ev, 0, sizeof(ev));
++    ev.type = SDL_MOUSEMOTION;
++    ev.motion.windowID = SDL_GetWindowID(win);
++    ev.motion.x = px;
++    ev.motion.y = py;
++    ev.motion.xrel = x;
++    ev.motion.yrel = y;
++    SDL_PushEvent(&ev);
+ }
+ 
+-extern "C" int SDL_SendMouseButton(SDL_Window* window, int mouseID, Uint8 state, Uint8 button);
+ extern "C" void Java_org_libsdl_app_SDLActivity_sendMouseButton(JNIEnv* env, jclass cls, int state, int button)
+ {
+-    SDL_SendMouseButton(Android_Window, 0, state, button);
++    SDL_Window* win = omwWindow();
++    if (!win)
++        return;
++
++    SDL_Event ev;
++    SDL_memset(&ev, 0, sizeof(ev));
++    ev.type = state ? SDL_MOUSEBUTTONDOWN : SDL_MOUSEBUTTONUP;
++    ev.button.windowID = SDL_GetWindowID(win);
++    ev.button.button = button;
++    ev.button.state = state ? SDL_PRESSED : SDL_RELEASED;
++    ev.button.clicks = 1;
++    SDL_PushEvent(&ev);
+ }
+ 
+ extern "C" int Java_org_libsdl_app_SDLActivity_nativeInit(JNIEnv* env, jclass cls, jobject obj)
+@@ -63,3 +103,55 @@ extern "C" int Java_org_libsdl_app_SDLActivity_nativeInit(JNIEnv* env, jclass cl
+ 
+     return 0;
+ }
++
++/*******************************************************************************
++ Surface lifecycle: the GL context is lost when the app is minimized, so the
++ render thread must release it before Android destroys the surface and
++ re-acquire it once a new surface exists. Called from SDLActivity's Java hooks.
++ *******************************************************************************/
++
++#include <osg/OperationThread>
++#include <osgViewer/Viewer>
++
++#include "mwbase/environment.hpp"
++#include "mwbase/windowmanager.hpp"
++
++extern osg::ref_ptr<osgViewer::Viewer> g_viewer;
++
++static osg::GraphicsContext* ctx;
++
++class CtxReleaseOperation : public osg::Operation
++{
++public:
++    void operator()(osg::Object* caller) override { ctx->releaseContext(); }
++};
++
++class CtxAcquireOperation : public osg::Operation
++{
++public:
++    void operator()(osg::Object* caller) override { ctx->makeCurrent(); }
++};
++
++extern "C" void Java_org_libsdl_app_SDLActivity_omwSurfaceDestroyed(JNIEnv* env, jclass cls, jobject obj)
++{
++    if (!g_viewer)
++        return;
++
++    ctx = g_viewer->getCamera()->getGraphicsContext();
++    osg::ref_ptr<CtxReleaseOperation> op = new CtxReleaseOperation();
++    ctx->add(op);
++
++    MWBase::Environment::get().getWindowManager()->windowVisibilityChange(false);
++}
++
++extern "C" void Java_org_libsdl_app_SDLActivity_omwSurfaceRecreated(JNIEnv* env, jclass cls, jobject obj)
++{
++    if (!g_viewer)
++        return;
++
++    ctx = g_viewer->getCamera()->getGraphicsContext();
++    osg::ref_ptr<CtxAcquireOperation> op = new CtxAcquireOperation();
++    ctx->add(op);
++
++    MWBase::Environment::get().getWindowManager()->windowVisibilityChange(true);
++}

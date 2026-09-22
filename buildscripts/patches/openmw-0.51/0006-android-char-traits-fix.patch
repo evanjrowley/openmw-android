@@ -1,0 +1,169 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 8698951d62..3570fc1615 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -74,6 +74,9 @@ set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/)
+ 
+ if (ANDROID)
+     set(CMAKE_FIND_ROOT_PATH ${OPENMW_DEPENDENCIES_DIR} "${CMAKE_FIND_ROOT_PATH}")
++    # libc++ dropped the char_traits primary template; MyGUI's UString needs it.
++    # CXX flags only: the header pulls in C++ headers, C sources must not see it.
++    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -include ${CMAKE_SOURCE_DIR}/extern/android_char_traits_fix.h")
+ endif()
+ 
+ # Version
+diff --git a/extern/android_char_traits_fix.h b/extern/android_char_traits_fix.h
+new file mode 100644
+index 0000000000..7c95288898
+--- /dev/null
++++ b/extern/android_char_traits_fix.h
+@@ -0,0 +1,149 @@
++#ifndef ANDROID_CHAR_TRAITS_FIX_H
++#define ANDROID_CHAR_TRAITS_FIX_H
++
++// libc++ (LLVM 17+) removed the std::char_traits primary template, which
++// breaks MyGUI's UString (std::basic_string<unsigned short>) and
++// std::basic_string<unsigned int> on Android. Provide the missing
++// specializations. Harmless for all other translation units.
++
++#include <iosfwd>
++#include <cstring>
++#include <cwchar>
++#include <string>
++
++namespace std
++{
++
++template <>
++struct char_traits<unsigned short>
++{
++    using char_type = unsigned short;
++    using int_type = int;
++    using off_type = streamoff;
++    using pos_type = streampos;
++    using state_type = mbstate_t;
++
++    static constexpr void assign(char_type& c1, const char_type& c2) noexcept { c1 = c2; }
++    static constexpr bool eq(char_type c1, char_type c2) noexcept { return c1 == c2; }
++    static constexpr bool lt(char_type c1, char_type c2) noexcept { return c1 < c2; }
++
++    static int compare(const char_type* s1, const char_type* s2, size_t n)
++    {
++        for (size_t i = 0; i < n; ++i)
++        {
++            if (s1[i] != s2[i])
++                return s1[i] < s2[i] ? -1 : 1;
++        }
++        return 0;
++    }
++
++    static size_t length(const char_type* s)
++    {
++        size_t n = 0;
++        while (s[n] != 0)
++            ++n;
++        return n;
++    }
++
++    static const char_type* find(const char_type* s, size_t n, const char_type& a)
++    {
++        for (size_t i = 0; i < n; ++i)
++        {
++            if (s[i] == a)
++                return s + i;
++        }
++        return nullptr;
++    }
++
++    static char_type* move(char_type* s1, const char_type* s2, size_t n)
++    {
++        return static_cast<char_type*>(memmove(s1, s2, n * sizeof(char_type)));
++    }
++
++    static char_type* copy(char_type* s1, const char_type* s2, size_t n)
++    {
++        return static_cast<char_type*>(memcpy(s1, s2, n * sizeof(char_type)));
++    }
++
++    static char_type* assign(char_type* s, size_t n, char_type a)
++    {
++        for (size_t i = 0; i < n; ++i)
++            s[i] = a;
++        return s;
++    }
++
++    static constexpr int_type not_eof(int_type c) noexcept { return c == eof() ? ~eof() : c; }
++    static constexpr char_type to_char_type(int_type c) noexcept { return static_cast<char_type>(c); }
++    static constexpr int_type to_int_type(char_type c) noexcept { return static_cast<int_type>(c); }
++    static constexpr bool eq_int_type(int_type c1, int_type c2) noexcept { return c1 == c2; }
++    static constexpr int_type eof() noexcept { return -1; }
++};
++
++template <>
++struct char_traits<unsigned int>
++{
++    using char_type = unsigned int;
++    using int_type = long long;
++    using off_type = streamoff;
++    using pos_type = streampos;
++    using state_type = mbstate_t;
++
++    static constexpr void assign(char_type& c1, const char_type& c2) noexcept { c1 = c2; }
++    static constexpr bool eq(char_type c1, char_type c2) noexcept { return c1 == c2; }
++    static constexpr bool lt(char_type c1, char_type c2) noexcept { return c1 < c2; }
++
++    static int compare(const char_type* s1, const char_type* s2, size_t n)
++    {
++        for (size_t i = 0; i < n; ++i)
++        {
++            if (s1[i] != s2[i])
++                return s1[i] < s2[i] ? -1 : 1;
++        }
++        return 0;
++    }
++
++    static size_t length(const char_type* s)
++    {
++        size_t n = 0;
++        while (s[n] != 0)
++            ++n;
++        return n;
++    }
++
++    static const char_type* find(const char_type* s, size_t n, const char_type& a)
++    {
++        for (size_t i = 0; i < n; ++i)
++        {
++            if (s[i] == a)
++                return s + i;
++        }
++        return nullptr;
++    }
++
++    static char_type* move(char_type* s1, const char_type* s2, size_t n)
++    {
++        return static_cast<char_type*>(memmove(s1, s2, n * sizeof(char_type)));
++    }
++
++    static char_type* copy(char_type* s1, const char_type* s2, size_t n)
++    {
++        return static_cast<char_type*>(memcpy(s1, s2, n * sizeof(char_type)));
++    }
++
++    static char_type* assign(char_type* s, size_t n, char_type a)
++    {
++        for (size_t i = 0; i < n; ++i)
++            s[i] = a;
++        return s;
++    }
++
++    static constexpr int_type not_eof(int_type c) noexcept { return c == eof() ? ~eof() : c; }
++    static constexpr char_type to_char_type(int_type c) noexcept { return static_cast<char_type>(c); }
++    static constexpr int_type to_int_type(char_type c) noexcept { return static_cast<int_type>(c); }
++    static constexpr bool eq_int_type(int_type c1, int_type c2) noexcept { return c1 == c2; }
++    static constexpr int_type eof() noexcept { return -1; }
++};
++
++}
++
++#endif // ANDROID_CHAR_TRAITS_FIX_H

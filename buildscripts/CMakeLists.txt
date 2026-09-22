@@ -254,6 +254,9 @@ ExternalProject_Add(ffmpeg
 	--enable-cross-compile
 	--cross-prefix=${NDK_BIN_DIR}/${NDK_TRIPLET}-
 	--cc=${CC_LAUNCHER}\ ${NDK_TRIPLET}${ANDROID_API}-clang
+	# hide symbols: static libs get linked into libopenmw.so; also avoids
+	# ld.lld rejecting adrp+add against preemptible asm-referenced tables
+	--extra-cflags=-fvisibility=hidden
 	--ar=${NDK_BIN_DIR}/llvm-ar
 	--nm=${NDK_BIN_DIR}/llvm-nm
 	--ranlib=${NDK_BIN_DIR}/llvm-ranlib
@@ -375,4 +378,6 @@ ExternalProject_Add(gl4es
 	# it under the plain libGL.so name Android's linker expects.
 	INSTALL_COMMAND cp -f <SOURCE_DIR>/lib/libGL.so.1 ${prefix}/lib/libGL.so
 	COMMAND cp -r <SOURCE_DIR>/include ${prefix}/
+	COMMAND mkdir -p ${prefix}/include/gl4es
+	COMMAND cp <SOURCE_DIR>/include/gl4esinit.h <SOURCE_DIR>/include/gl4eshint.h ${prefix}/include/gl4es/
 )
