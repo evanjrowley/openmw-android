@@ -4,10 +4,9 @@ set -e
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd $DIR
 
-export ARCH="arm"
+export ARCH="arm64"
 export CCACHE="false"
 ASAN="false"
-DEPLOY_RESOURCES="true"
 LTO="false"
 BUILD_TYPE="release"
 CFLAGS="-fPIC"
@@ -17,13 +16,15 @@ LDFLAGS=""
 usage() {
 	echo "Usage: ./build.sh [--help] [--asan] [--arch arch] [--debug|--release]"
 	echo "	--help: print this message"
-	echo "	--arch: build for specified architecture [arm, arm64, x86_64, x86] (default: arm)"
+	echo "	--arch: build for specified architecture [arm, arm64, x86_64, x86] (default: arm64)"
 	echo "	--asan: build with AddressSanitizer enabled"
-	echo "	--no-resources: don't deploy the resources (used in full-build.sh)"
 	echo "	--lto: use LTO for linking"
 	echo "	--ccache: use ccache to speed up repeated builds"
 	echo "	--debug: produce a debug build without optimizations"
 	echo "	--release: produce a release build with optimizations (default)"
+	echo ""
+	echo "The Android NDK must be provided through ANDROID_NDK_ROOT; the"
+	echo "Nix development environment (nix develop, see ../flake.nix) sets it up."
 	exit 0
 }
 
@@ -60,10 +61,6 @@ while [[ $# -gt 0 ]]; do
 			BUILD_TYPE="release"
 			shift
 			;;
-		--no-resources)
-			DEPLOY_RESOURCES="false"
-			shift
-			;;
 		*)
 			echo "Invalid argument: $key"
 			exit 1
@@ -78,10 +75,17 @@ fi
 
 source ./include/version.sh
 
+if [[ -z $ANDROID_NDK_ROOT || ! -d $ANDROID_NDK_ROOT ]]; then
+	echo "ERROR: ANDROID_NDK_ROOT is not set or does not exist."
+	echo "Run this build through 'nix develop' (see ../flake.nix)."
+	exit 1
+fi
+NDK_BIN_DIR="$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin"
+
 if [ $ASAN = true ]; then
-	CFLAGS="$CFLAGS -fsanitize=address -fuse-ld=gold -fno-omit-frame-pointer"
-	CXXFLAGS="$CXXFLAGS -fsanitize=address -fuse-ld=gold -fno-omit-frame-pointer"
-	LDFLAGS="$LDFLAGS -fsanitize=address -fuse-ld=gold -fno-omit-frame-pointer"
+	CFLAGS="$CFLAGS -fsanitize=address -fno-omit-frame-pointer"
+	CXXFLAGS="$CXXFLAGS -fsanitize=address -fno-omit-frame-pointer"
+	LDFLAGS="$LDFLAGS -fsanitize=address -fno-omit-frame-pointer"
 fi
 
 if [ $BUILD_TYPE = "release" ]; then
@@ -95,8 +99,7 @@ fi
 if [[ $LTO = "true" ]]; then
 	CFLAGS="$CFLAGS -flto"
 	CXXFLAGS="$CXXFLAGS -flto"
-	# emulated-tls should not be needed in ndk r18 https://github.com/android-ndk/ndk/issues/498#issuecomment-327825754
-	LDFLAGS="$LDFLAGS -flto -Wl,-plugin-opt=-emulated-tls -fuse-ld=gold"
+	LDFLAGS="$LDFLAGS -flto"
 fi
 
 if [[ $ARCH = "arm" ]]; then
@@ -104,13 +107,20 @@ if [[ $ARCH = "arm" ]]; then
 	CXXFLAGS="$CXXFLAGS -mthumb"
 fi
 
+CCACHE_PREFIX=""
+if [[ $CCACHE = "true" ]]; then
+	CCACHE_PREFIX="ccache "
+fi
+
 echo ""
 echo "================================================================================"
 echo ""
 echo "Build configuration:"
-echo " - Architecture: $ARCH"
+echo " - Architecture: $ARCH ($ABI)"
 echo " - Build type: $BUILD_TYPE"
 echo " - AddressSanitizer: $ASAN"
+echo " - ccache: $CCACHE"
+echo " - NDK: $ANDROID_NDK_ROOT"
 echo ""
 echo " ------------------------------------------------------------------------------ "
 echo ""
@@ -123,10 +133,6 @@ echo "==========================================================================
 echo "(Please run ./clean.sh manually if you modify any of the options)"
 echo ""
 
-echo "==> Download and set up the NDK"
-./include/download-ndk.sh
-./include/setup-ndk.sh
-
 NCPU=$(grep -c ^processor /proc/cpuinfo)
 echo "==> Build using $NCPU CPUs"
 mkdir -p build/$ARCH/
@@ -135,8 +141,6 @@ mkdir -p prefix/$ARCH/
 # symlink lib64 -> lib so we don't get half the libs in one directory half in another
 mkdir -p prefix/$ARCH/lib
 ln -sf lib prefix/$ARCH/lib64
-mkdir -p prefix/$ARCH/osg/lib
-ln -sf lib prefix/$ARCH/osg/lib64
 
 # generate command_wrapper.sh
 cat include/command_wrapper_head.sh.in | \
@@ -145,10 +149,23 @@ cat include/command_wrapper_head.sh.in | \
 	ENV_CFLAGS=$CFLAGS \
 	ENV_CXXFLAGS=$CXXFLAGS \
 	NDK_TRIPLET=$NDK_TRIPLET \
+	ANDROID_API=$ANDROID_API \
+	NDK_BIN_DIR=$NDK_BIN_DIR \
+	CCACHE_PREFIX="$CCACHE_PREFIX" \
 	ENV_LDFLAGS=$LDFLAGS \
 		envsubst > build/$ARCH/command_wrapper.sh
 cat include/command_wrapper_tail.sh.in >> build/$ARCH/command_wrapper.sh
 chmod +x build/$ARCH/command_wrapper.sh
+
+# generate boost user-config.jam (b2 toolset config)
+cat include/boost-user-config.jam.in | \
+	DIR=$DIR \
+	NDK_TRIPLET=$NDK_TRIPLET \
+	ANDROID_API=$ANDROID_API \
+	NDK_BIN_DIR=$NDK_BIN_DIR \
+	CCACHE_PREFIX="$CCACHE_PREFIX" \
+		envsubst > build/$ARCH/boost-user-config.jam
+cat build/$ARCH/boost-user-config.jam
 
 pushd build/$ARCH/
 
@@ -160,9 +177,12 @@ cmake ../.. \
 	-DCMAKE_INSTALL_PREFIX=$DIR/prefix/$ARCH/ \
 	-DARCH=$ARCH \
 	-DBUILD_TYPE=$BUILD_TYPE \
-	-DNDK_TRIPLET=$NDK_TRIPLET \
+	-DANDROID_NDK_ROOT=$ANDROID_NDK_ROOT \
 	-DANDROID_API=$ANDROID_API \
+	-DNDK_TRIPLET=$NDK_TRIPLET \
 	-DABI=$ABI \
+	-DUSE_CCACHE=$CCACHE \
+	-DBOOST_USER_CONFIG=$DIR/build/$ARCH/boost-user-config.jam \
 	-DBOOST_ARCH=$BOOST_ARCH \
 	-DBOOST_ADDRESS_MODEL=$BOOST_ADDRESS_MODEL \
 	-DLUAJIT_HOST_CC="$LUAJIT_HOST_CC" \
@@ -171,65 +191,44 @@ make -j$NCPU
 
 popd
 
+# gl4es hardcodes soname "libGL.so.1"; Android's linker must find "libGL.so"
+patchelf --set-soname libGL.so prefix/$ARCH/lib/libGL.so
+
 echo "==> Installing shared libraries"
 
-rm -rf ../app/wrap/
 rm -rf ../app/src/main/jniLibs/$ABI/
 mkdir -p ../app/src/main/jniLibs/$ABI/
 
-# libopenmw.so is a special case
-find build/$ARCH/openmw-prefix/ -iname "libopenmw.so" -exec cp "{}" ../app/src/main/jniLibs/$ABI/libopenmw.so \;
-
-# copy over libs we compiled
-cp prefix/$ARCH/lib/{libopenal,libSDL2,libhidapi,libGL}.so ../app/src/main/jniLibs/$ABI/
+# copy over libs we compiled (hidapi is built into libSDL2.so since 2.30)
+cp prefix/$ARCH/lib/{libopenal,libSDL2,libGL}.so ../app/src/main/jniLibs/$ABI/
 
 # copy over libc++_shared
-find ./toolchain/$ARCH/sysroot/usr/lib/$NDK_TRIPLET -iname "libc++_shared.so" -exec cp "{}" ../app/src/main/jniLibs/$ABI/ \;
+find "$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/$NDK_TRIPLET" \
+	-iname "libc++_shared.so" -exec cp "{}" ../app/src/main/jniLibs/$ABI/ \;
 
-if [[ $DEPLOY_RESOURCES = "true" ]]; then
-	echo "==> Deploying resources"
-
-	DST=$DIR/../app/src/main/assets/libopenmw/
-	SRC=build/$ARCH/openmw-prefix/src/openmw-build/
-
-	rm -rf "$DST" && mkdir -p "$DST"
-
-	# resources
-	cp -r "$SRC/resources" "$DST"
-
-	# global config
-	mkdir -p "$DST/openmw/"
-	cp "$SRC/defaults.bin" "$DST/openmw/"
-	cp "$SRC/gamecontrollerdb.txt" "$DST/openmw/"
-	cat "$SRC/openmw.cfg" | grep -v "data=" | grep -v "data-local=" >> "$DST/openmw/openmw.base.cfg"
-	cat "$DIR/../app/openmw.base.cfg" >> "$DST/openmw/openmw.base.cfg"
-
-	# licensing info
-	cp "$DIR/../3rdparty-licenses.txt" "$DST"
-fi
+# NOTE: libopenmw.so and the OpenMW resources (resources/, defaults.bin,
+# openmw.cfg, gamecontrollerdb.txt) are produced by the Phase 2 build of
+# OpenMW 0.51 itself, not here.
 
 echo "==> Making your debugging life easier"
 
 # copy unstripped libs to aid debugging
 rm -rf "./symbols/$ABI/" && mkdir -p "./symbols/$ABI/"
-cp "./build/$ARCH/openal-prefix/src/openal-build/libopenal.so" "./symbols/$ABI/"
-cp "./build/$ARCH/sdl2-prefix/src/sdl2-build/obj/local/$ABI/libSDL2.so" "./symbols/$ABI/"
-cp "./build/$ARCH/sdl2-prefix/src/sdl2-build/obj/local/$ABI/libhidapi.so" "./symbols/$ABI/"
-cp "./build/$ARCH/openmw-prefix/src/openmw-build/libopenmw.so" "./symbols/$ABI/libopenmw.so"
-cp "./build/$ARCH/gl4es-prefix/src/gl4es-build/obj/local/$ABI/libGL.so" "./symbols/$ABI/"
+cp prefix/$ARCH/lib/libopenal.so "./symbols/$ABI/" || true
+find build/$ARCH/sdl2-prefix/src/sdl2-build/ -name "libSDL2.so" -exec cp "{}" "./symbols/$ABI/" \; || true
+find build/$ARCH/gl4es-prefix/src/gl4es/lib/ -name "libGL.so*" -exec cp "{}" "./symbols/$ABI/" \; || true
 cp "../app/src/main/jniLibs/$ABI/libc++_shared.so" "./symbols/$ABI/"
 
 if [ $ASAN = true ]; then
-	cp ./toolchain/$ARCH/lib64/clang/*/lib/linux/libclang_rt.asan-$ASAN_ARCH-android.so "./symbols/$ABI/"
-	cp ./toolchain/$ARCH/lib64/clang/*/lib/linux/libclang_rt.asan-$ASAN_ARCH-android.so "../app/src/main/jniLibs/$ABI/"
+	find "$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/lib" \
+		-iname "libclang_rt.asan-$ASAN_ARCH-android.so" -exec cp "{}" "./symbols/$ABI/" \; \
+		-exec cp "{}" "../app/src/main/jniLibs/$ABI/" \;
 	mkdir -p ../app/wrap/res/lib/$ABI/
 	sed "s/@ASAN_ARCH@/$ASAN_ARCH/g" < include/asan-wrapper.sh > "../app/wrap/res/lib/$ABI/wrap.sh"
 	chmod +x "../app/wrap/res/lib/$ABI/wrap.sh"
 fi
 
-PATH="$DIR/toolchain/ndk/prebuilt/linux-x86_64/bin/:$DIR/toolchain/$ARCH/$NDK_TRIPLET/bin/:$PATH" ./include/gdb-add-index ./symbols/$ABI/*.so
-
 # gradle should do it, but just in case...
-$NDK_TRIPLET-strip ../app/src/main/jniLibs/$ABI/*.so
+$NDK_BIN_DIR/llvm-strip ../app/src/main/jniLibs/$ABI/*.so
 
 echo "==> Success"

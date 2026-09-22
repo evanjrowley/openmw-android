@@ -1,42 +1,36 @@
-commit bc40a4836c9d915909eafb7906ca7812259380ba
-Author: Ilya Zhuravlev <whatever@xyz.is>
-Date:   Sun Aug 30 18:05:49 2020 -0400
-
-    Add a shader hack to allow modifying gamma value
-
 diff --git a/src/gl/fpe.h b/src/gl/fpe.h
-index e4ceb9c..2022808 100755
+index e20cb2f..958ee2e 100644
 --- a/src/gl/fpe.h
 +++ b/src/gl/fpe.h
-@@ -187,6 +187,7 @@ typedef struct fpe_state_s {
-     unsigned int fragment_prg_enable:1;  // if fragment program is enabled
+@@ -217,6 +217,7 @@ typedef struct fpe_state_s {
+     unsigned int blendeqalpha:3;
      uint16_t     vertex_prg_id;          // Id of vertex program currently binded (0 most of the time), 16bits is more than enough...
      uint16_t     fragment_prg_id;        // Id of fragment program currently binded (0 most of the time)
 +    int16_t gamma;
- }__attribute__((packed)) fpe_state_t;
+ } fpe_state_t;
+ #pragma pack()
  
- typedef struct fpe_fpe_s {
 diff --git a/src/gl/fpe_shader.c b/src/gl/fpe_shader.c
-index dd6ad8d..c716710 100755
+index dc7ebb1..c4417e0 100644
 --- a/src/gl/fpe_shader.c
 +++ b/src/gl/fpe_shader.c
-@@ -1381,6 +1381,11 @@ const char* const* fpe_FragmentShader(shaderconv_need_t* need, fpe_state_t *stat
-         #endif
+@@ -1621,6 +1621,11 @@ const char* const* fpe_FragmentShader(shaderconv_need_t* need, fpe_state_t *stat
      }
  
+     //done
 +    if (state->gamma) {
 +        sprintf(buff, "fColor.rgb = pow(fColor.rgb, vec3(1.0 / %.3f));\n", state->gamma / 100.0);
 +        ShadAppend(buff);
 +    }
 +
-     //done
      ShadAppend("gl_FragColor = fColor;\n");
      ShadAppend("}");
+ 
 diff --git a/src/gl/light.c b/src/gl/light.c
-index 54aeb4f..1f114a9 100755
+index 608bbc6..6b0b7f2 100644
 --- a/src/gl/light.c
 +++ b/src/gl/light.c
-@@ -77,6 +77,10 @@ void gl4es_glLightModelfv(GLenum pname, const GLfloat* params) {
+@@ -77,6 +77,10 @@ void APIENTRY_GL4ES gl4es_glLightModelfv(GLenum pname, const GLfloat* params) {
              return;
          } else gl4es_flush();
      switch (pname) {

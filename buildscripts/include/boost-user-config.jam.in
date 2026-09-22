@@ -1,0 +1,4 @@
+# b2 config for the Android NDK (clang-based unified toolchain).
+# Registers the NDK clang++ as toolset "clang" version "android",
+# invoked from build.sh as toolset=clang-android.
+using clang : android : $CCACHE_PREFIX$NDK_TRIPLET$ANDROID_API-clang++ : <archiver>$NDK_BIN_DIR/llvm-ar <ranlib>$NDK_BIN_DIR/llvm-ranlib ;

@@ -16,21 +16,25 @@ There are two steps for building OpenMW for Android. The first step is building 
 
 ### Prerequisites
 
-You will need some standard tools installed that you probably already have (bash, gcc, g++, sha256sum, unzip).
-
-CMake 3.6.0 or newer is **required**, you can download the latest version [here](https://cmake.org/download/) (and place in your `PATH`) if your distro ships with an outdated version.
-
-Additionally, to build the launcher you will need Android SDK installed, it is suggested that you use Android Studio which can set it up for you (see step 2).
+The build environment is managed declaratively with [Nix](https://nixos.org/) (see `flake.nix`): it provides CMake, ninja, ccache, autotools, a host toolchain, OpenJDK and the Android SDK/NDK (r26d). The only host requirement is Nix itself with flakes enabled.
 
 ### Step 1: Build the libraries
 
-Go into the `buildscripts` directory and run `./build.sh`. The script will automatically download the Android native toolchain and all dependencies, and will compile and install them.
+Go into the `buildscripts` directory and run:
+
+```
+nix develop -c bash -c './build.sh --arch arm64 --ccache'
+```
+
+The script will automatically download the dependencies, cross-compile them for Android and install them into `buildscripts/prefix/<arch>`, copying the shared libraries into `app/src/main/jniLibs/`.
+
+Note: this step no longer builds OpenMW itself. For OpenMW 0.51 the engine is cross-built directly from the OpenMW source tree (its own CMake fetches Bullet, MyGUI, OSG, RecastNavigation, yaml-cpp, sqlite and ICU); see the Phase 2 section of the porting plan.
 
 ### Step 2: Build the Java launcher
 
 To get an APK file you can install, open the `openmw-android` directory in Android Studio and run the project.
 
-Alternatively, if you do not have Android Studio installed or would rather not use it, run `./gradlew assembleDebug` from the root directory of this repository. The resulting APK, located at `./app/build/outputs/apk/debug/app-debug.apk`, can be transferred to the device and installed.
+Alternatively, if you do not have Android Studio installed or would rather not use it, run `./gradlew assembleDebug` from the root directory of this repository (also inside `nix develop`). The resulting APK, located at `./app/build/outputs/apk/debug/app-debug.apk`, can be transferred to the device and installed.
 
 ## Notes for developers
 

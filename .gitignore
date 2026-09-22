@@ -15,3 +15,8 @@ output.json
 .ccls-cache
 app/nightly
 app/mainline
+
+# Phase 1 build outputs
+buildscripts/downloads/
+buildscripts/prefix/
+buildscripts/symbols/

@@ -1,12 +1,11 @@
 #!/bin/bash
 
-NDK_VERSION="r21e"
-NDK_HASH="ad7ce5467e18d40050dc51b8e7affc3e635c85bd8c59be62de32352328ed467e"
+# The NDK is provided by the Nix development environment (see ../flake.nix)
+# through ANDROID_NDK_ROOT - there is no NDK version pin or download here.
+
 ANDROID_API="21"
 
 # End of configurable options
-
-NDK_FILE="ndk-$NDK_VERSION.zip"
 
 if [[ $ARCH = "arm" ]]; then
 	ABI="armeabi-v7a"
