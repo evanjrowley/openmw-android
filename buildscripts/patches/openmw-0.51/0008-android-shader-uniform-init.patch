@@ -1,0 +1,53 @@
+diff --git a/files/shaders/compatibility/debug.frag b/files/shaders/compatibility/debug.frag
+index a92b406d46..041562fc0e 100644
+--- a/files/shaders/compatibility/debug.frag
++++ b/files/shaders/compatibility/debug.frag
+@@ -4,7 +4,7 @@
+ 
+ varying vec3 vertexNormal;
+ 
+-uniform bool useAdvancedShader = false;
++uniform bool useAdvancedShader;
+ 
+ void main()
+ {
+diff --git a/files/shaders/compatibility/debug.vert b/files/shaders/compatibility/debug.vert
+index 47d5337a66..a1fa462f39 100644
+--- a/files/shaders/compatibility/debug.vert
++++ b/files/shaders/compatibility/debug.vert
+@@ -6,7 +6,7 @@ uniform vec3 color;
+ uniform vec3 trans;
+ uniform vec3 scale;
+ uniform bool useNormalAsColor;
+-uniform bool useAdvancedShader = false;
++uniform bool useAdvancedShader;
+ 
+ centroid varying vec4 passColor;
+ varying vec3 vertexNormal;
+diff --git a/files/shaders/compatibility/fullscreen_tri.vert b/files/shaders/compatibility/fullscreen_tri.vert
+index 3174384212..a85f189e21 100644
+--- a/files/shaders/compatibility/fullscreen_tri.vert
++++ b/files/shaders/compatibility/fullscreen_tri.vert
+@@ -1,6 +1,6 @@
+ #version 120
+ 
+-uniform vec2 scaling = vec2(1.0, 1.0);
++uniform vec2 scaling;
+ 
+ varying vec2 uv;
+ 
+diff --git a/files/shaders/compatibility/shadowcasting.vert b/files/shaders/compatibility/shadowcasting.vert
+index c68bdd5c17..41136c2d42 100644
+--- a/files/shaders/compatibility/shadowcasting.vert
++++ b/files/shaders/compatibility/shadowcasting.vert
+@@ -6,8 +6,8 @@ varying float alphaPassthrough;
+ 
+ uniform int colorMode;
+ uniform bool useTreeAnim;
+-uniform bool useDiffuseMapForShadowAlpha = true;
+-uniform bool alphaTestShadows = true;
++uniform bool useDiffuseMapForShadowAlpha;
++uniform bool alphaTestShadows;
+ 
+ void main(void)
+ {

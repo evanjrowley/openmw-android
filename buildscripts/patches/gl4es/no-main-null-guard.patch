@@ -1,0 +1,15 @@
+diff --git a/src/gl/shaderconv.c b/src/gl/shaderconv.c
+index 3d0f46b..4c0ab56 100644
+--- a/src/gl/shaderconv.c
++++ b/src/gl/shaderconv.c
+@@ -1135,7 +1135,9 @@ char* ConvertShader(const char* pEntry, int isVertex, shaderconv_need_t *need)
+   } else if(isVertex && need && need->need_clipvertex) {
+     Tmp = gl4es_inplace_insert(gl4es_getline(Tmp, 2), gl4es_ClipVertex, Tmp, &tmpsize);
+     headline+=gl4es_countline(gl4es_ClipVertex);
+-    char *p = strchr(gl4es_find_string_nc(Tmp, "main"), '{'); // find the openning curly bracket of main
++    // (openmw) library shaders have no main(); don't crash looking for it
++    const char* mainp = gl4es_find_string_nc(Tmp, "main");
++    char *p = mainp ? strchr(mainp, '{') : NULL; // find the openning curly bracket of main
+     if(p) {
+       // add regular clipping at start of main
+       Tmp = gl4es_inplace_insert(p+1, gl4es_ClipVertex_clip, Tmp, &tmpsize);
