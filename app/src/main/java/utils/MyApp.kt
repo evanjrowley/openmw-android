@@ -1,17 +1,29 @@
+/*
+    Copyright (C) 2019 Ilya Zhuravlev
+
+    This file is part of OpenMW-Android.
+
+    OpenMW-Android is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    OpenMW-Android is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with OpenMW-Android.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
 package utils
 
 import android.app.Application
-import android.content.pm.PackageManager
 import android.os.Environment
-import android.preference.PreferenceManager
-import android.util.Base64
-import android.util.Log
-import com.bugsnag.android.Bugsnag
-import com.bugsnag.android.Configuration
 import com.libopenmw.openmw.BuildConfig
 import constants.Constants
 import java.io.File
-import java.security.MessageDigest
 
 class MyApp : Application() {
 
@@ -35,33 +47,9 @@ class MyApp : Application() {
         Constants.RESOURCES = File(filesDir, "resources").absolutePath
         Constants.GLOBAL_CONFIG = File(filesDir, "config").absolutePath
         Constants.VERSION_STAMP = File(filesDir, "stamp").absolutePath
-
-        // Enable bugsnag only when API key is provided and we have user consent
-        // Also don't enable bugsnag in debug builds
-        if (isProductionBuild() && BugsnagApiKey.API_KEY.isNotEmpty() && !BuildConfig.DEBUG) {
-            haveBugsnagApiKey = true
-
-            val prefs = PreferenceManager.getDefaultSharedPreferences(this)
-            if (prefs.getString("bugsnag_consent", "false")!! == "true") {
-                val config = Configuration(BugsnagApiKey.API_KEY)
-                config.buildUUID = ""
-                Bugsnag.init(this, config)
-                reportCrashes = true
-            }
-        }
-    }
-
-    private fun isProductionBuild(): Boolean {
-        val sig = applicationContext.packageManager.getPackageInfo(applicationContext.packageName, PackageManager.GET_SIGNATURES).signatures[0]
-        val digest: MessageDigest = MessageDigest.getInstance("SHA-256")
-        val hashBytes: ByteArray = digest.digest(sig.toByteArray())
-        val hash: String = Base64.encodeToString(hashBytes, Base64.NO_WRAP)
-        return hash == "cOqSYH3ucLraOQ7wyg/v8UKTGHlxP8N8JTN6UXO7rV0="
     }
 
     companion object {
-        var reportCrashes = false
-        var haveBugsnagApiKey = false
         lateinit var app: MyApp
     }
 }

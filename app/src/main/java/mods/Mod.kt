@@ -19,8 +19,9 @@
 
 package mods
 
+import android.content.ContentValues
+import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
-import org.jetbrains.anko.db.*
 
 enum class ModType(val v: Int) {
     Plugin(1),
@@ -49,12 +50,12 @@ class Mod(val type: ModType, val filename: String, var order: Int, var enabled: 
      * @param db Database connection
      */
     fun update(db: SQLiteDatabase) {
-        db.update("mod",
-            "load_order" to order,
-            "enabled" to enabled)
-            .whereArgs("filename = {filename} AND type = {type}",
-                "filename" to filename,
-                "type" to type.v).exec()
+        val values = ContentValues()
+        values.put("load_order", order)
+        values.put("enabled", if (enabled) 1 else 0)
+        db.update("mod", values,
+            "filename = ? AND type = ?",
+            arrayOf(filename, type.v.toString()))
     }
 
     /**
@@ -62,20 +63,25 @@ class Mod(val type: ModType, val filename: String, var order: Int, var enabled: 
      * @param db Database connection
      */
     fun insert(db: SQLiteDatabase) {
-        db.insert("mod",
-            "type" to type.v,
-            "filename" to filename,
-            "load_order" to order,
-            "enabled" to (if (enabled) 1 else 0))
+        db.insert("mod", null, toValues())
     }
-}
 
-class ModRowParser : RowParser<Mod> {
-    override fun parseRow(columns: Array<Any?>): Mod {
-        return Mod(
-            ModType.valueFrom((columns[0] as Long).toInt()),
-            columns[1] as String,
-            (columns[2] as Long).toInt(),
-            (columns[3] as Long) != 0L)
+    fun toValues(): ContentValues {
+        val values = ContentValues()
+        values.put("type", type.v)
+        values.put("filename", filename)
+        values.put("load_order", order)
+        values.put("enabled", if (enabled) 1 else 0)
+        return values
+    }
+
+    companion object {
+        fun fromCursor(cursor: Cursor): Mod {
+            return Mod(
+                ModType.valueFrom(cursor.getInt(0)),
+                cursor.getString(1),
+                cursor.getInt(2),
+                cursor.getInt(3) != 0)
+        }
     }
 }

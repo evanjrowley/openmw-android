@@ -23,12 +23,12 @@ import com.libopenmw.openmw.R
 
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.widget.ViewFlipper
 import com.google.android.material.tabs.TabLayout
 import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import file.GameInstaller
-import kotlinx.android.synthetic.main.activity_mods.*
 import mods.*
 import android.view.MenuItem
 
@@ -43,6 +43,9 @@ class ModsActivity : AppCompatActivity() {
 
         // Enable the "back" icon in the action bar
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
+
+        val tabLayout = findViewById<TabLayout>(R.id.tabLayout)
+        val flipper = findViewById<ViewFlipper>(R.id.flipper)
 
         // Switch tabs between plugins/resources
         tabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {

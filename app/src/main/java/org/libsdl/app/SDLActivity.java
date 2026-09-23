@@ -1201,6 +1201,11 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
         return SDLActivity.mSurface;
     }
 
+    // (openmw) called by the on-screen keyboard; routes to SDLInputConnection
+    public static void nativeCommitText(String text, int newCursorPosition) {
+        SDLInputConnection.nativeCommitText(text, newCursorPosition);
+    }
+
     /**
      * This method is called by SDL using JNI.
      */

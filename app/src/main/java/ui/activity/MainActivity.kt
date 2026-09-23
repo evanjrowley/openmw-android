@@ -20,7 +20,6 @@
 
 package ui.activity
 
-import android.annotation.SuppressLint
 import android.app.AlarmManager
 import android.app.AlertDialog
 import android.app.PendingIntent
@@ -38,7 +37,6 @@ import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
 import android.widget.Toast
-import com.bugsnag.android.Bugsnag
 
 import com.libopenmw.openmw.BuildConfig
 import com.libopenmw.openmw.R
@@ -79,39 +77,6 @@ class MainActivity : AppCompatActivity() {
 
         val fab = findViewById<FloatingActionButton>(R.id.fab)
         fab.setOnClickListener { checkStartGame() }
-
-        if (prefs.getString("bugsnag_consent", "")!! == "") {
-            askBugsnagConsent()
-        }
-    }
-
-    /**
-     * Set new user consent and maybe restart the app
-     * @param consent New value of bugsnag consent
-     */
-    @SuppressLint("ApplySharedPref")
-    private fun setBugsnagConsent(consent: String) {
-        val currentConsent = prefs.getString("bugsnag_consent", "")!!
-        if (currentConsent == consent)
-            return
-
-        // We only need to force a restart if the user revokes their consent
-        // If user grants consent, crashes won't be reported for 1 game session, but that's alright
-        val needRestart = currentConsent == "true" && consent == "false"
-
-        with (prefs.edit()) {
-            putString("bugsnag_consent", consent)
-            commit()
-        }
-
-        if (needRestart) {
-            AlertDialog.Builder(this)
-                .setOnDismissListener { System.exit(0) }
-                .setTitle(R.string.bugsnag_consent_restart_title)
-                .setMessage(R.string.bugsnag_consent_restart_message)
-                .setPositiveButton(android.R.string.ok) { _, _ -> System.exit(0) }
-                .show()
-        }
     }
 
     /**
@@ -128,30 +93,6 @@ class MainActivity : AppCompatActivity() {
                 .setMessage(getString(R.string.no_browser_message, url))
                 .setPositiveButton(android.R.string.ok) { _, _ -> }
                 .show()
-        }
-    }
-
-    /**
-     * Asks the user if they want to automatically report crashes
-     */
-    private fun askBugsnagConsent() {
-        // Do nothing for builds without api-key
-        if (!MyApp.haveBugsnagApiKey)
-            return
-
-        val dialog = AlertDialog.Builder(this)
-            .setTitle(R.string.bugsnag_consent_title)
-            .setMessage(R.string.bugsnag_consent_message)
-            .setNeutralButton(R.string.bugsnag_policy) { _, _ -> /* set up below */ }
-            .setNegativeButton(R.string.bugsnag_no) { _, _ -> setBugsnagConsent("false") }
-            .setPositiveButton(R.string.bugsnag_yes) { _, _ -> setBugsnagConsent("true") }
-            .create()
-
-        dialog.show()
-
-        // don't close the dialog when the privacy-policy button is clicked
-        dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener {
-            openUrl("https://omw.xyz.is/privacy-policy.html")
         }
     }
 
@@ -501,8 +442,6 @@ class MainActivity : AppCompatActivity() {
         menu.clear()
         val inflater = menuInflater
         inflater.inflate(R.menu.menu_settings, menu)
-        if (!MyApp.haveBugsnagApiKey)
-            menu.findItem(R.id.action_bugsnag_consent).setVisible(false)
         return super.onPrepareOptionsMenu(menu)
     }
 
@@ -525,11 +464,6 @@ class MainActivity : AppCompatActivity() {
                     .setMessage(text)
                     .show()
 
-                true
-            }
-
-            R.id.action_bugsnag_consent -> {
-                askBugsnagConsent()
                 true
             }
 

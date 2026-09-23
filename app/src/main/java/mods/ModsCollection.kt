@@ -19,7 +19,6 @@
 
 package mods
 
-import org.jetbrains.anko.db.*
 import java.io.File
 
 /**
@@ -54,8 +53,9 @@ class ModsCollection(private val type: ModType,
     private fun isEmpty(): Boolean {
         var count = 0
         db.use {
-            count = select("mod", "count(1)").exec {
-                parseSingle(IntParser)
+            count = it.rawQuery("SELECT count(1) FROM mod", null).use { c ->
+                c.moveToFirst()
+                c.getInt(0)
             }
         }
         return count == 0
@@ -78,13 +78,13 @@ class ModsCollection(private val type: ModType,
      * @param type Type of the mods (plugins/resources)
      */
     private fun initDbMods(files: List<String>, type: ModType) {
-        db.use {
+        db.use { sql ->
             var order = 0
             files
                 .map { File(dataFiles, it) }
                 .filter { it.exists() }
                 .map { order += 1; Mod(type, it.name, order, true) }
-                .forEach { it.insert(this) }
+                .forEach { it.insert(sql) }
         }
     }
 
@@ -97,10 +97,12 @@ class ModsCollection(private val type: ModType,
 
         // Get mods from the database
         db.use {
-            select("mod", "type", "filename", "load_order", "enabled")
-                .whereArgs("type = {type}", "type" to type.v).exec {
-                    dbMods = parseList(ModRowParser())
+            it.rawQuery("SELECT type, filename, load_order, enabled FROM mod WHERE type = ?",
+                arrayOf(type.v.toString())).use { c ->
+                while (c.moveToNext()) {
+                    dbMods = dbMods + Mod.fromCursor(c)
                 }
+            }
         }
 
         // Get file names matching the extensions
@@ -138,18 +140,21 @@ class ModsCollection(private val type: ModType,
         }
 
         // Commit changes to the database
-        db.use {
-            transaction {
+        db.use { sql ->
+            sql.beginTransaction()
+            try {
                 // Delete all mods which are in db but not on fs
-                (dbNames - fsNames).forEach {
-                    delete("mod",
-                        "type = {type} AND filename = {filename}",
-                        "type" to type.v,
-                        "filename" to it)
+                (dbNames - fsNames).forEach { name ->
+                    sql.delete("mod",
+                        "type = ? AND filename = ?",
+                        arrayOf(type.v.toString(), name))
                 }
 
                 // Create all mods which are on fs but not in db
-                newMods.forEach { it.insert(this) }
+                newMods.forEach { it.insert(sql) }
+                sql.setTransactionSuccessful()
+            } finally {
+                sql.endTransaction()
             }
         }
 
@@ -161,9 +166,9 @@ class ModsCollection(private val type: ModType,
      * Performs DB updates for all mods marked as dirty
      */
     fun update() {
-        db.use {
+        db.use { sql ->
             mods.filter { it.dirty }.forEach {
-                it.update(this)
+                it.update(sql)
                 it.dirty = false
             }
         }
