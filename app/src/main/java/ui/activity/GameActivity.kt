@@ -116,6 +116,13 @@ class GameActivity : SDLActivity() {
         return "libopenmw.so"
     }
 
+    override fun getLibraries(): Array<String> {
+        // libopenmw.so links everything it needs; SDL2 is the only lib the
+        // Java layer loads by name. (hidapi is compiled into libSDL2.so since
+        // SDL 2.30, and there is no libmain.so - getMainSharedObject covers it.)
+        return arrayOf("SDL2")
+    }
+
     public override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         KeepScreenOn()
