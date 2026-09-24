@@ -204,6 +204,11 @@ ExternalProject_Add(openal
 	-DALSOFT_NO_CONFIG_UTIL=ON
 	-DALSOFT_BACKEND_OPENSL=ON
 	-DALSOFT_BACKEND_WAVE=OFF
+	# NDK r28's toolchain keeps find_path() from seeing sysroot headers
+	# (find_library still works), so FindOpenSL would silently disable the
+	# only real Android audio backend and the game runs with "No Output".
+	-DOPENSL_INCLUDE_DIR=${NDK_SYSROOT}/usr/include
+	-DOPENSL_ANDROID_INCLUDE_DIR=${NDK_SYSROOT}/usr/include
 
 	BUILD_COMMAND ${wrapper_command} $(MAKE)
 

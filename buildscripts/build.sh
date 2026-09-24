@@ -196,8 +196,13 @@ patchelf --set-soname libGL.so prefix/$ARCH/lib/libGL.so
 
 echo "==> Installing shared libraries"
 
-rm -rf ../app/src/main/jniLibs/$ABI/
+# Refresh only the dependency libs this script owns. libopenmw.so is the
+# Phase 2 (build-openmw.sh) product and must survive a deps-only rebuild.
 mkdir -p ../app/src/main/jniLibs/$ABI/
+rm -f ../app/src/main/jniLibs/$ABI/libopenal.so \
+	../app/src/main/jniLibs/$ABI/libSDL2.so \
+	../app/src/main/jniLibs/$ABI/libGL.so \
+	../app/src/main/jniLibs/$ABI/libc++_shared.so
 
 # copy over libs we compiled (hidapi is built into libSDL2.so since 2.30)
 cp prefix/$ARCH/lib/{libopenal,libSDL2,libGL}.so ../app/src/main/jniLibs/$ABI/
