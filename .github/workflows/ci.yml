@@ -1,0 +1,88 @@
+name: CI
+
+# OpenMW 0.51 Android port pipeline. All tooling comes from the Nix flake
+# (NDK r28.2, SDK, JDK 17, cmake/ninja/ccache) — do not apt-install a
+# toolchain here; buildscripts/ requires ANDROID_NDK_ROOT from the flake env.
+
+on:
+  push:
+    branches: [openmw-0.51, master]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v16
+
+      - name: Cache Nix store
+        uses: nix-community/cache-nix-action@v6
+        with:
+          primary-key: nix-${{ runner.os }}-${{ hashFiles('flake.lock') }}
+          restore-keys: nix-${{ runner.os }}-
+          gc-max-store-size: 12G
+
+      - name: Cache host ICU 70.1
+        uses: actions/cache@v4
+        with:
+          path: buildscripts/icu-host
+          key: icu-host-70.1
+
+      - name: Cache dependency prefix
+        uses: actions/cache@v4
+        with:
+          path: |
+            buildscripts/prefix
+            buildscripts/downloads
+          key: prefix-arm64-v8a-${{ hashFiles('buildscripts/CMakeLists.txt') }}
+
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: .ccache
+          key: ccache-arm64-v8a-${{ github.sha }}
+          restore-keys: ccache-arm64-v8a-
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties', 'app/build.gradle', 'build.gradle') }}
+
+      - name: Check out OpenMW 0.51 source
+        run: git clone --branch openmw-0.51.0 --depth 1 https://github.com/OpenMW/openmw.git ../openmw-0.51
+
+      - name: Build host ICU (required once for the ICU cross-build)
+        run: nix develop -c bash buildscripts/build-icu-host.sh
+
+      - name: Build native dependencies (arm64-v8a)
+        run: nix develop -c bash -c 'cd buildscripts && ./build.sh --arch arm64 --ccache'
+
+      - name: Build libopenmw.so + engine assets
+        run: nix develop -c bash -c 'cd buildscripts && ./build-openmw.sh'
+
+      - name: Build APK
+        run: nix develop -c ./gradlew assembleNightlyDebug
+
+      - name: Collect artifacts
+        run: |
+          mkdir -p artifacts
+          cp app/build/outputs/apk/nightly/debug/omw_debug_*.apk artifacts/
+          find buildscripts/build/openmw-arm64 -name "libopenmw.so" \
+            -exec cp "{}" artifacts/libopenmw-unstripped.so \;
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: omw-debug-arm64-v8a
+          path: artifacts/
+          if-no-files-found: error
