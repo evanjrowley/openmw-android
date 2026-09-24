@@ -169,6 +169,7 @@ class GameActivity : SDLActivity() {
     override fun getArguments(): Array<String> {
         val cmd = PreferenceManager.getDefaultSharedPreferences(this).getString("commandLine", "")
         val commandlineParser = CommandlineParser(cmd!!)
+        Log.i("OpenMW", "getArguments: cmd='$cmd' argv=${commandlineParser.argv.joinToString(" ")}")
         return commandlineParser.argv
     }
 
