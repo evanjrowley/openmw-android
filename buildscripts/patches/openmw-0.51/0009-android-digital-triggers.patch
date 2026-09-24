@@ -1,0 +1,26 @@
+diff --git a/apps/openmw/androidmain.cpp b/apps/openmw/androidmain.cpp
+index 87aaab967a..4eaa602050 100644
+--- a/apps/openmw/androidmain.cpp
++++ b/apps/openmw/androidmain.cpp
+@@ -103,10 +103,18 @@ extern "C" int Java_org_libsdl_app_SDLActivity_nativeInit(JNIEnv* env, jclass cl
+     setenv("OPENMW_DECOMPRESS_TEXTURES", "1", 1);
+ 
+     // On Android, we use a virtual controller with guid="Virtual"
++    //
++    // OPENMW_ANDROID_051_DIGITAL_TRIGGERS: with the Retroid Pocket trigger
++    // switch in digital (or both) mode, L2/R2 arrive as button events, which
++    // SDL's Android keycode table maps to joystick buttons 15/16 - those were
++    // bound to back/guide, so digital triggers did nothing (L2 even opened
++    // the menu). Bind the buttons to the trigger outputs as well; SDL
++    // supports several inputs per output. back/guide move to the Select and
++    // Mode buttons they correspond to (buttons 4/5).
+     SDL_GameControllerAddMapping(
+-        "5669727475616c000000000000000000,Virtual,a:b0,b:b1,back:b15,dpdown:h0.4,dpleft:h0.8,dpright:h0.2,dpup:h0.1,"
+-        "guide:b16,leftshoulder:b6,leftstick:b13,lefttrigger:a5,leftx:a0,lefty:a1,rightshoulder:b7,rightstick:b14,"
+-        "righttrigger:a4,rightx:a2,righty:a3,start:b11,x:b3,y:b4");
++        "5669727475616c000000000000000000,Virtual,a:b0,b:b1,back:b4,dpdown:h0.4,dpleft:h0.8,dpright:h0.2,dpup:h0.1,"
++        "guide:b5,leftshoulder:b6,leftstick:b13,lefttrigger:a5,lefttrigger:b15,leftx:a0,lefty:a1,"
++        "rightshoulder:b7,rightstick:b14,righttrigger:a4,righttrigger:b16,rightx:a2,righty:a3,start:b11,x:b3,y:b4");
+ 
+     // OPENMW_ANDROID_051_RUNTIME_BASELINE
+     // Do not stall the SDL thread while Android is paused. Surface ownership is
