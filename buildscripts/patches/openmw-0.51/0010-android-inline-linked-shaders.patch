@@ -1,8 +1,8 @@
 diff --git a/components/shader/shadermanager.cpp b/components/shader/shadermanager.cpp
-index b02120709a..7a311b9074 100644
+index b02120709a..f9ab250f50 100644
 --- a/components/shader/shadermanager.cpp
 +++ b/components/shader/shadermanager.cpp
-@@ -553,18 +553,56 @@ namespace Shader
+@@ -553,18 +553,77 @@ namespace Shader
                  return nullptr;
              }
  
@@ -28,6 +28,23 @@ index b02120709a..7a311b9074 100644
 +                }
 +                linkedShaderNames.clear();
 +                lock.lock();
++
++                // (openmw) repeated includes of the same header leave several
++                // identical uniform declarations; gl4es hoists every sampler
++                // declaration to the top of the converted shader, so
++                // duplicates are rejected by GLES2 drivers as redefinitions.
++                // Keep the first declaration of each uniform, drop the rest.
++                std::set<std::string> seenUniforms;
++                std::istringstream in(shaderSource);
++                std::ostringstream outLines;
++                std::string line;
++                while (std::getline(in, line))
++                {
++                    if (line.rfind("uniform ", 0) == 0 && !seenUniforms.insert(line).second)
++                        continue;
++                    outLines << line << "\n";
++                }
++                shaderSource = outLines.str();
 +            }
 +#endif
 +
@@ -45,7 +62,11 @@ index b02120709a..7a311b9074 100644
 +            {
 +                std::filesystem::path dumpDir = "/sdcard/omw_nightly/shaderdump";
 +                std::filesystem::create_directories(dumpDir);
-+                std::ofstream dump(dumpDir / (std::to_string(counter - 1) + "_" + templateName));
++                std::string safeName = templateName;
++                for (auto& c : safeName)
++                    if (c == '/')
++                        c = '_';
++                std::ofstream dump(dumpDir / (std::to_string(counter - 1) + "_" + safeName));
 +                dump << shaderSource;
 +            }
 +#endif

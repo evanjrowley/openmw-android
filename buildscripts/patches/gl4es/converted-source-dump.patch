@@ -1,0 +1,15 @@
+diff --git a/src/gl/shader.c b/src/gl/shader.c
+index f4213084..f4b54054 100644
+--- a/src/gl/shader.c
++++ b/src/gl/shader.c
+@@ -132,8 +132,8 @@ void APIENTRY_GL4ES gl4es_glCompileShader(GLuint shader) {
+             GLint status = 0;
+             gles_glGetShaderiv(glshader->id, GL_COMPILE_STATUS, &status);
+             if(status!=GL_TRUE) {
+-                printf("LIBGL: Error while compiling shader %d. Original source is:\n%s\n=======\n", glshader->id, glshader->source);
+-                printf("ShaderConv Source is:\n%s\n=======\n", glshader->converted);
++                { FILE* f = fopen("/sdcard/omw_nightly/shaderdump/conv_orig.txt", "w"); if(f) { fprintf(f, "%s", glshader->source); fclose(f); } } printf("LIBGL: Error while compiling shader %d. Original source is:\n%s\n=======\n", glshader->id, glshader->source);
++                { FILE* f2 = fopen("/sdcard/omw_nightly/shaderdump/conv_out.txt", "w"); if(f2) { fprintf(f2, "%s", glshader->converted); fclose(f2); } } printf("ShaderConv Source is:\n%s\n=======\n", glshader->converted);
+                 char tmp[500];
+                 GLint length;
+                 gles_glGetShaderInfoLog(glshader->id, 500, &length, tmp);

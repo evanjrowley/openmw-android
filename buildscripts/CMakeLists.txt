@@ -367,6 +367,7 @@ ExternalProject_Add(gl4es
 	# (openmw) GLES2: shaders without main() crash the converter's
 	# clip-vertex injection (OpenMW 0.51 lib shaders hit this)
 	PATCH_COMMAND patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/gl4es/no-main-null-guard.patch
+	COMMAND patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/gl4es/converted-source-dump.patch
 
 	CONFIGURE_COMMAND ${wrapper_command} cmake <SOURCE_DIR>
 	${COMMON_CMAKE_ARGS}

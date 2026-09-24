@@ -81,6 +81,14 @@ class GameActivity : SDLActivity() {
 
         }
 
+        // (openmw) gl4es (sisah2 fork) builds its precompiled-shader-archive
+        // path from this variable and crashes without it
+        try {
+            Os.setenv("OPENMW_USER_FILE_STORAGE", Constants.USER_FILE_STORAGE, true)
+        } catch (e: ErrnoException) {
+            Log.e("OpenMW", "Failed setting OPENMW_USER_FILE_STORAGE.")
+        }
+
         System.loadLibrary("c++_shared")
         System.loadLibrary("openal")
         System.loadLibrary("SDL2")
