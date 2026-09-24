@@ -1,0 +1,152 @@
+diff --git a/apps/openmw/mwbase/windowmanager.hpp b/apps/openmw/mwbase/windowmanager.hpp
+index 273294bd12..6fc95a3909 100644
+--- a/apps/openmw/mwbase/windowmanager.hpp
++++ b/apps/openmw/mwbase/windowmanager.hpp
+@@ -118,6 +118,10 @@ namespace MWBase
+         /// (and will continually update the window while doing so)
+         virtual void playVideo(std::string_view name, bool allowSkipping, bool overrideSounds = true) = 0;
+ 
++        /// Toggle the on-screen frame rate overlay (the F3 key binding) for
++        /// platforms without a keyboard.
++        virtual void toggleFps() = 0;
++
+         virtual void setNewGame(bool newgame) = 0;
+ 
+         virtual void pushGuiMode(MWGui::GuiMode mode, const MWWorld::Ptr& arg) = 0;
+diff --git a/apps/openmw/mwgui/settingswindow.cpp b/apps/openmw/mwgui/settingswindow.cpp
+index 08e4db6d5b..8eac6ea737 100644
+--- a/apps/openmw/mwgui/settingswindow.cpp
++++ b/apps/openmw/mwgui/settingswindow.cpp
+@@ -281,6 +281,7 @@ namespace MWGui
+         getWidget(mSecondaryLanguage, "SecondaryLanguage");
+         getWidget(mGmstOverridesL10n, "GmstOverridesL10nButton");
+         getWidget(mWindowModeHint, "WindowModeHint");
++        getWidget(mFpsToggleButton, "FpsToggleButton");
+         getWidget(mLightingMethodButton, "LightingMethodButton");
+         getWidget(mLightsResetButton, "LightsResetButton");
+         getWidget(mMaxLights, "MaxLights");
+@@ -332,6 +333,17 @@ namespace MWGui
+         mWindowModeList->eventComboChangePosition += MyGUI::newDelegate(this, &SettingsWindow::onWindowModeChanged);
+         mVSyncModeList->eventComboChangePosition += MyGUI::newDelegate(this, &SettingsWindow::onVSyncModeChanged);
+ 
++#ifdef ANDROID
++        // No F-Keys on touch screens: replace the F3 hint with a button that
++        // toggles the frame rate overlay directly.
++        MyGUI::Widget* frameRateHint;
++        getWidget(frameRateHint, "FrameRateHint");
++        frameRateHint->setVisible(false);
++        mFpsToggleButton->setVisible(true);
++        mFpsToggleButton->eventMouseButtonClick
++            += MyGUI::newDelegate(this, &SettingsWindow::onFpsToggleButtonClicked);
++#endif
++
+         mKeyboardSwitch->eventMouseButtonClick += MyGUI::newDelegate(this, &SettingsWindow::onKeyboardSwitchClicked);
+         mControllerSwitch->eventMouseButtonClick
+             += MyGUI::newDelegate(this, &SettingsWindow::onControllerSwitchClicked);
+@@ -703,6 +715,14 @@ namespace MWGui
+         }
+     }
+ 
++    void SettingsWindow::onFpsToggleButtonClicked(MyGUI::Widget* /*sender*/)
++    {
++        MWBase::Environment::get().getWindowManager()->toggleFps();
++        mFpsShown = !mFpsShown;
++        const char* key = mFpsShown ? "FrameRateToggleHide" : "FrameRateToggleShow";
++        mFpsToggleButton->setCaptionWithReplacing(std::string("#{OMWEngine:") + key + "}");
++    }
++
+     void SettingsWindow::onTextureFilteringChanged(MyGUI::ComboBox* /*sender*/, size_t pos)
+     {
+         auto& generalSettings = Settings::general();
+diff --git a/apps/openmw/mwgui/settingswindow.hpp b/apps/openmw/mwgui/settingswindow.hpp
+index 60b3e26372..b58a9b37ab 100644
+--- a/apps/openmw/mwgui/settingswindow.hpp
++++ b/apps/openmw/mwgui/settingswindow.hpp
+@@ -58,6 +58,8 @@ namespace MWGui
+         MyGUI::Button* mGmstOverridesL10n;
+ 
+         MyGUI::Widget* mWindowModeHint;
++        MyGUI::Button* mFpsToggleButton;
++        bool mFpsShown = false;
+ 
+         // controls
+         MyGUI::ScrollView* mControlsBox;
+@@ -85,6 +87,7 @@ namespace MWGui
+         void highlightCurrentResolution();
+ 
+         void onRefractionButtonClicked(MyGUI::Widget* sender);
++        void onFpsToggleButtonClicked(MyGUI::Widget* sender);
+         void onWaterTextureSizeChanged(MyGUI::ComboBox* sender, size_t pos);
+         void onWaterReflectionDetailChanged(MyGUI::ComboBox* sender, size_t pos);
+         void onWaterRainRippleDetailChanged(MyGUI::ComboBox* sender, size_t pos);
+diff --git a/apps/openmw/mwgui/windowmanagerimp.cpp b/apps/openmw/mwgui/windowmanagerimp.cpp
+index 651c523d22..071931fcfb 100644
+--- a/apps/openmw/mwgui/windowmanagerimp.cpp
++++ b/apps/openmw/mwgui/windowmanagerimp.cpp
+@@ -8,6 +8,8 @@
+ 
+ #include <osgViewer/Viewer>
+ 
++#include <osgGA/EventQueue>
++
+ #include <MyGUI_ClipboardManager.h>
+ #include <MyGUI_FactoryManager.h>
+ #include <MyGUI_InputManager.h>
+@@ -2088,6 +2090,13 @@ namespace MWGui
+             && (!isGuiMode() || (mGuiModes.size() == 1 && (getMode() == GM_MainMenu || getMode() == GM_Rest)));
+     }
+ 
++    void WindowManager::toggleFps()
++    {
++        // Synthesize the F3 key press that Resource::StatsHandler listens for.
++        mViewer->getEventQueue()->keyPress(osgGA::GUIEventAdapter::KEY_F3);
++        mViewer->getEventQueue()->keyRelease(osgGA::GUIEventAdapter::KEY_F3);
++    }
++
+     void WindowManager::playVideo(std::string_view name, bool allowSkipping, bool overrideSounds)
+     {
+         mVideoWidget->playVideo("video\\" + std::string{ name });
+diff --git a/apps/openmw/mwgui/windowmanagerimp.hpp b/apps/openmw/mwgui/windowmanagerimp.hpp
+index aa9947c8a5..dcfb07330e 100644
+--- a/apps/openmw/mwgui/windowmanagerimp.hpp
++++ b/apps/openmw/mwgui/windowmanagerimp.hpp
+@@ -145,6 +145,8 @@ namespace MWGui
+         /// (and will continually update the window while doing so)
+         void playVideo(std::string_view name, bool allowSkipping, bool overrideSounds = true) override;
+ 
++        void toggleFps() override;
++
+         /// Warning: do not use MyGUI::InputManager::setKeyFocusWidget directly. Instead use this.
+         void setKeyFocusWidget(MyGUI::Widget* widget) override;
+ 
+diff --git a/files/data/l10n/OMWEngine/en.yaml b/files/data/l10n/OMWEngine/en.yaml
+index ad531fed8a..f2e59c6d35 100644
+--- a/files/data/l10n/OMWEngine/en.yaml
++++ b/files/data/l10n/OMWEngine/en.yaml
+@@ -122,6 +122,8 @@ ForcePerPixelLightingTooltip: |-
+ 
+     Note that groundcover shaders and particle effects ignore this setting.
+ FrameRateHint: "Hint: press F3 to show\nthe current frame rate."
++FrameRateToggleShow: "Show frame rate"
++FrameRateToggleHide: "Hide frame rate"
+ GammaCorrection: "Gamma Correction"
+ GammaCorrectionValue: "Gamma Correction ({value, number, ::.00})"
+ GammaDark: "Dark"
+diff --git a/files/data/mygui/openmw_settings_window.layout b/files/data/mygui/openmw_settings_window.layout
+index 494371c656..30ef60f711 100644
+--- a/files/data/mygui/openmw_settings_window.layout
++++ b/files/data/mygui/openmw_settings_window.layout
+@@ -320,9 +320,12 @@
+                             </Widget>
+                         </Widget>
+ 
+-                        <Widget type="AutoSizedTextBox" skin="SandText" position="207 174 300 32" align="Left Top">
++                        <Widget type="AutoSizedTextBox" skin="SandText" position="207 174 300 32" align="Left Top" name="FrameRateHint">
+                             <Property key="Caption" value="#{OMWEngine:FrameRateHint}"/>
+                         </Widget>
++                        <Widget type="AutoSizedButton" skin="MW_Button" position="207 174 300 24" align="Left Top" name="FpsToggleButton" visible="false">
++                            <Property key="Caption" value="#{OMWEngine:FrameRateToggleShow}"/>
++                        </Widget>
+                         <Widget type="AutoSizedTextBox" skin="SandText" position="207 216 300 32" align="Left Top" name="WindowModeHint">
+                             <Property key="Caption" value="#{OMWEngine:WindowModeHint}"/>
+                         </Widget>
