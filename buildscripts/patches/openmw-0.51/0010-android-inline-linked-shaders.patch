@@ -1,0 +1,62 @@
+diff --git a/components/shader/shadermanager.cpp b/components/shader/shadermanager.cpp
+index b02120709a..7a311b9074 100644
+--- a/components/shader/shadermanager.cpp
++++ b/components/shader/shadermanager.cpp
+@@ -553,18 +553,56 @@ namespace Shader
+                 return nullptr;
+             }
+ 
+-            osg::ref_ptr<osg::Shader> shader(new osg::Shader(type ? *type : getShaderType(templateName)));
++            std::optional<osg::Shader::Type> resolvedType = type;
++            if (!resolvedType.has_value())
++                resolvedType = getShaderType(templateName);
++
++#ifdef ANDROID
++            // (openmw) GLES2 drivers (e.g. Adreno via gl4es) reject shader
++            // objects without main() at compile time and fail to link
++            // separate objects that call each other's functions. Inline the
++            // linked shader sources into the parent instead of attaching
++            // standalone objects.
++            if (!linkedShaderNames.empty())
++            {
++                lock.unlock();
++                for (const auto& linkedShaderName : linkedShaderNames)
++                {
++                    auto linkedShader = getShader(linkedShaderName, defines, resolvedType);
++                    if (linkedShader)
++                        shaderSource += "\n" + linkedShader->getShaderSource();
++                }
++                linkedShaderNames.clear();
++                lock.lock();
++            }
++#endif
++
++            osg::ref_ptr<osg::Shader> shader(new osg::Shader(*resolvedType));
+             shader->setShaderSource(shaderSource);
+             // Assign a unique prefix to allow the SharedStateManager to compare shaders efficiently.
+             // Append shader source filename for debugging.
+             static unsigned int counter = 0;
+             shader->setName(std::format("{} {}", counter++, templateName));
+ 
++#ifdef ANDROID
++            // (openmw) temporary debug: dump merged sources to inspect
++            // GLES2 compile failures
++            if (getenv("OPENMW_DUMP_SHADERS") != nullptr)
++            {
++                std::filesystem::path dumpDir = "/sdcard/omw_nightly/shaderdump";
++                std::filesystem::create_directories(dumpDir);
++                std::ofstream dump(dumpDir / (std::to_string(counter - 1) + "_" + templateName));
++                dump << shaderSource;
++            }
++#endif
++
+             mHotReloadManager->addShaderFiles(templateName, defines);
+ 
++#ifndef ANDROID
+             lock.unlock();
+             getLinkedShaders(shader, linkedShaderNames, defines);
+             lock.lock();
++#endif
+ 
+             shaderIt = mShaders.insert(std::make_pair(std::make_pair(templateName, defines), shader)).first;
+         }

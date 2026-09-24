@@ -67,10 +67,12 @@ set(LZ4_HASH SHA256=0b0e3aa07c8c063ddf40b082bdf7e37a1562bda40a0ff5272957f3e987e0
 set(LUAJIT_VERSION c6ffc141a8762b41703f9287d63d93622a13dd8f)
 set(LUAJIT_HASH SHA256=6e5fec07750add912e7c3eae0c194d24cd6d023714e1f04a0298a5b4819e4457)
 
-# https://github.com/ptitSeb/gl4es - master snapshot
-# Pinned to the commit the rebased gamma.patch applies to.
-set(GL4ES_VERSION 81547d986798e876de8b434193920b606a72363f)
-set(GL4ES_HASH SHA256=475c30409fd64a649352487d0df0dc3f8ef200ea5c54b7de5f61d099948877ed)
+# https://github.com/sisah2/gl4es - OpenMW-tuned gl4es fork (as used by the
+# reference 0.51 Android port): ships highp fog/precision fixes, disabled
+# shader hacks, precompiled-shader-archive support and the 0x4242 gamma hook
+# natively. Do not bump to ptitSeb master casually.
+set(GL4ES_VERSION 5ac069d82ad8ca2cc3c574484e4c5bad880db83e)
+set(GL4ES_HASH SHA256=60ee788c2b43a5a25cd1a8a0071a77e957f2d5ff070eda5c39eb120d1ad2c3ea)
 
 # End of configurable options
 
@@ -362,8 +364,9 @@ ExternalProject_Add(gl4es
 	URL_HASH ${GL4ES_HASH}
 	DOWNLOAD_DIR ${download_dir}
 
-	PATCH_COMMAND patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/gl4es/gamma.patch
-	COMMAND patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/gl4es/no-main-null-guard.patch
+	# (openmw) GLES2: shaders without main() crash the converter's
+	# clip-vertex injection (OpenMW 0.51 lib shaders hit this)
+	PATCH_COMMAND patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/gl4es/no-main-null-guard.patch
 
 	CONFIGURE_COMMAND ${wrapper_command} cmake <SOURCE_DIR>
 	${COMMON_CMAKE_ARGS}
