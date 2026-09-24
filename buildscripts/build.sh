@@ -191,8 +191,10 @@ make -j$NCPU
 
 popd
 
-# gl4es hardcodes soname "libGL.so.1"; Android's linker must find "libGL.so"
-patchelf --set-soname libGL.so prefix/$ARCH/lib/libGL.so
+# The cmake-built gl4es hardcoded soname "libGL.so.1"; Android's linker must
+# find "libGL.so". The Android.mk build already emits a plain libGL.so, but
+# normalizing is harmless either way.
+patchelf --set-soname libGL.so prefix/$ARCH/lib/libGL.so 2>/dev/null || true
 
 echo "==> Installing shared libraries"
 

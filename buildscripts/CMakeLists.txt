@@ -365,7 +365,7 @@ ExternalProject_Add(luajit
 )
 
 ExternalProject_Add(gl4es
-	URL https://github.com/ptitSeb/gl4es/archive/${GL4ES_VERSION}.tar.gz
+	URL https://github.com/sisah2/gl4es/archive/${GL4ES_VERSION}.tar.gz
 	URL_HASH ${GL4ES_HASH}
 	DOWNLOAD_DIR ${download_dir}
 
@@ -374,20 +374,19 @@ ExternalProject_Add(gl4es
 	PATCH_COMMAND patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/gl4es/no-main-null-guard.patch
 	COMMAND patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/gl4es/converted-source-dump.patch
 
-	CONFIGURE_COMMAND ${wrapper_command} cmake <SOURCE_DIR>
-	${COMMON_CMAKE_ARGS}
-	-DANDROID=ON
-	-DNOEGL=ON
-	-DNO_LOADER=ON
-	-DNO_INIT_CONSTRUCTOR=ON
-	-DUSE_ANDROID_LOG=ON
+	# Build through gl4es' own Android.mk exactly like the reference port:
+	# constructor-based self-init (no NO_INIT_CONSTRUCTOR), DEFAULT_ES=2 and
+	# the EGL loader present. The MANUAL_INIT=OFF OpenMW flag pairs with it.
+	BUILD_COMMAND ${wrapper_command} ${ANDROID_NDK_ROOT}/ndk-build
+		NDK_PROJECT_PATH=<BINARY_DIR>
+		APP_BUILD_SCRIPT=<SOURCE_DIR>/Android.mk
+		APP_PLATFORM=${android_platform}
+		APP_ABI=${app_abi}
+		-j4
 
-	BUILD_COMMAND ${wrapper_command} $(MAKE)
-
-	# gl4es names its shared library libGL.so.1 (hardcoded SUFFIX); install
-	# it under the plain libGL.so name Android's linker expects.
-	INSTALL_COMMAND cp -f <SOURCE_DIR>/lib/libGL.so.1 ${prefix}/lib/libGL.so
+	# ndk-build emits libs/<abi>/libGL.so under NDK_PROJECT_PATH.
+	INSTALL_COMMAND mkdir -p ${prefix}/lib/
+	COMMAND cp libs/${app_abi}/libGL.so ${prefix}/lib/
 	COMMAND cp -r <SOURCE_DIR>/include ${prefix}/
-	COMMAND mkdir -p ${prefix}/include/gl4es
-	COMMAND cp <SOURCE_DIR>/include/gl4esinit.h <SOURCE_DIR>/include/gl4eshint.h ${prefix}/include/gl4es/
+	COMMAND cp -r <SOURCE_DIR>/include ${prefix}/include/gl4es/
 )

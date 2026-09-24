@@ -1,0 +1,30 @@
+diff --git a/apps/openmw/mwrender/localmap.cpp b/apps/openmw/mwrender/localmap.cpp
+index 39d088084f..a2040ccfeb 100644
+--- a/apps/openmw/mwrender/localmap.cpp
++++ b/apps/openmw/mwrender/localmap.cpp
+@@ -741,7 +741,25 @@ namespace MWRender
+         osg::ref_ptr<osg::Fog> fog(new osg::Fog);
+         fog->setStart(10000000);
+         fog->setEnd(10000000);
++#ifdef ANDROID
++        // OPENMW_ANDROID_051_LOCAL_MAP_FOG_OFF
++        // GL4ES propagates neither the gl_Fog built-ins nor the omwFog*
++        // uniforms reliably into every program variant under a disabled-fog
++        // override: objects/terrain then fog fully to the weather fog colour
++        // and the local map renders as one flat pale blob. Keep both fog
++        // paths enabled but with a range so large that the factor is 0.
++        fog->setStart(10000000.f);
++        fog->setEnd(10000001.f);
++        stateset->setAttributeAndModes(fog, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
++        stateset->addUniform(new osg::Uniform("omwFogStart", 10000000.f),
++            osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
++        stateset->addUniform(new osg::Uniform("omwFogEnd", 10000001.f),
++            osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
++        stateset->addUniform(new osg::Uniform("omwFogColor", osg::Vec4f(0.f, 0.f, 0.f, 1.f)),
++            osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
++#else
+         stateset->setAttributeAndModes(fog, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
++#endif
+ 
+         // turn of sky blending
+         stateset->addUniform(new osg::Uniform("far", 10000000.0f));
