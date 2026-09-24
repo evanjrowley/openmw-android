@@ -1,0 +1,18 @@
+--- a/src/joystick/SDL_gamecontroller.c	2025-01-31 18:41:09.000000000 -0500
++++ b/src/joystick/SDL_gamecontroller.c	2026-09-24 19:55:56.238251928 -0400
+@@ -482,6 +482,15 @@
+     if (button_mask & (1 << SDL_CONTROLLER_BUTTON_DPAD_RIGHT)) {
+         SDL_strlcat(mapping_string, "dpright:b14,", sizeof(mapping_string));
+     }
++    /* OPENMW_ANDROID_DIGITAL_TRIGGERS: handhelds whose trigger switch sends
++     * L2/R2 as buttons expose them through keycode_to_SDL as buttons 15/16;
++     * bind them to the trigger outputs so digital trigger mode works. */
++    if (button_mask & (1 << 15)) {
++        SDL_strlcat(mapping_string, "lefttrigger:b15,", sizeof(mapping_string));
++    }
++    if (button_mask & (1 << 16)) {
++        SDL_strlcat(mapping_string, "righttrigger:b16,", sizeof(mapping_string));
++    }
+     if (axis_mask & (1 << SDL_CONTROLLER_AXIS_LEFTX)) {
+         SDL_strlcat(mapping_string, "leftx:a0,", sizeof(mapping_string));
+     }

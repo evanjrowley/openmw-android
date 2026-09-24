@@ -302,6 +302,11 @@ ExternalProject_Add(sdl2
 	URL_HASH ${SDL2_HASH}
 	DOWNLOAD_DIR ${download_dir}
 
+	# OPENMW_ANDROID_DIGITAL_TRIGGERS: bind L2/R2 buttons (15/16) to the
+	# trigger outputs in SDL's Android auto-generated controller mapping so
+	# handhelds with a digital trigger switch work.
+	PATCH_COMMAND patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/sdl2/android-digital-triggers.patch
+
 	CONFIGURE_COMMAND ${wrapper_command} cmake <SOURCE_DIR>
 	${COMMON_CMAKE_ARGS}
 	-DSDL_SHARED=ON
