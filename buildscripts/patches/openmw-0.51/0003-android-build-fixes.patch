@@ -1,5 +1,5 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 8698951d62..3570fc1615 100644
+index 3fc1b8321e..3570fc1615 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -74,6 +74,9 @@ set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/)
@@ -12,6 +12,76 @@ index 8698951d62..3570fc1615 100644
  endif()
  
  # Version
+@@ -296,7 +299,6 @@ set(USED_OSG_COMPONENTS
+     )
+ set(USED_OSG_PLUGINS
+     osgdb_bmp
+-    osgdb_dae
+     osgdb_dds
+     osgdb_freetype
+     osgdb_jpeg
+@@ -305,6 +307,12 @@ set(USED_OSG_PLUGINS
+     osgdb_serializers_osg
+     osgdb_tga)
+ 
++# On Android we skip the COLLADA plugin: it would require collada-dom and
++# boost filesystem/system cross-built, for a format Morrowind never uses.
++if(NOT ANDROID)
++    list(APPEND USED_OSG_PLUGINS osgdb_dae)
++endif()
++
+ if(NOT COLLADA_DOM_VERSION_MAJOR)
+     set(COLLADA_DOM_VERSION_MAJOR 2)
+ endif()
+diff --git a/apps/openmw/CMakeLists.txt b/apps/openmw/CMakeLists.txt
+index 17c4e96b16..09243dcce6 100644
+--- a/apps/openmw/CMakeLists.txt
++++ b/apps/openmw/CMakeLists.txt
+@@ -145,6 +145,11 @@ if(BUILD_OPENMW)
+             main.cpp
+             androidmain.cpp
+         )
++        # androidmain.cpp pulls in osg headers; the SHARED target does not
++        # inherit them through openmw-lib's private link dependencies, and the
++        # root include_directories() ran before FetchContent had set them.
++        target_include_directories(openmw PRIVATE
++            $<TARGET_PROPERTY:osg,INTERFACE_INCLUDE_DIRECTORIES>)
+     else()
+         openmw_add_executable(openmw
+             ${APPLE_BUNDLE_RESOURCES}
+diff --git a/extern/CMakeLists.txt b/extern/CMakeLists.txt
+index 3dc1050d90..da03f68507 100644
+--- a/extern/CMakeLists.txt
++++ b/extern/CMakeLists.txt
+@@ -68,7 +68,13 @@ if(NOT OPENMW_USE_SYSTEM_MYGUI)
+         URL_HASH SHA512=c804ef665e786076582367f171082cd2181fdbd214300ddcca4a4245c5a0f45e62e72778ee2d96ec46b393e22477dd729f9bb3006e6eecbf536674e34a057721
+         SOURCE_DIR fetched/mygui
+     )
++    # MyGUI 3.4.3's UString (std::basic_string<unsigned short>) relies on the
++    # char_traits primary template, which C++20 removes; libc++ rejects it
++    # outright (gcc's libstdc++ still accepts it as an extension). MyGUI is a
++    # self-contained static lib, so build it as C++17 and restore afterwards.
++    set(CMAKE_CXX_STANDARD 17)
+     FetchContent_MakeAvailable(mygui)
++    set(CMAKE_CXX_STANDARD 20)
+ 
+     set(MyGUI_INCLUDE_DIRS ${mygui_SOURCE_DIR}/MyGUIEngine/include PARENT_SCOPE)
+     set(MyGUI_LIBRARIES MyGUIEngine PARENT_SCOPE)
+@@ -247,9 +253,11 @@ if (NOT OPENMW_USE_SYSTEM_ICU)
+             ${ICU_ENV}
+             "CC=${CMAKE_C_COMPILER_LAUNCHER} ${NDK_STANDARD_ROOT}/bin/${ICU_TOOLCHAIN_NAME}${ANDROIDVER}-clang"
+             "CXX=${CMAKE_CXX_COMPILER_LAUNCHER} ${NDK_STANDARD_ROOT}/bin/${ICU_TOOLCHAIN_NAME}${ANDROIDVER}-clang"
+-            "RANLIB=${NDK_STANDARD_ROOT}/bin/${ICU_TOOLCHAIN_NAME}-ranlib"
+-            "AR=${NDK_STANDARD_ROOT}/bin/${ICU_TOOLCHAIN_NAME}-ar"
+-            "CPPFLAGS=${ANDROID_COMPILER_FLAGS}"
++            "RANLIB=${NDK_STANDARD_ROOT}/bin/llvm-ranlib"
++            # NDK r23+ dropped <triple>-ar binutils; llvm-ar is present in r22 too
++            "AR=${NDK_STANDARD_ROOT}/bin/llvm-ar"
++            # -fPIC: the static ICU ends up inside the shared libopenmw.so
++            "CPPFLAGS=-fPIC ${ANDROID_COMPILER_FLAGS}"
+             "LDFLAGS=${ANDROID_LINKER_FLAGS} -lc -lstdc++"
+             )
+         set(ICU_ADDITIONAL_OPTS --disable-tools --host=${ICU_TOOLCHAIN_NAME}${ANDROIDVER} --with-cross-build=${OPENMW_ICU_HOST_BUILD_DIR})
 diff --git a/extern/android_char_traits_fix.h b/extern/android_char_traits_fix.h
 new file mode 100644
 index 0000000000..7c95288898

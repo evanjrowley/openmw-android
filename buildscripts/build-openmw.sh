@@ -7,8 +7,9 @@
 #
 # Expects the OpenMW source in a git checkout/worktree at the pinned tag
 # (default ../openmw-0.51 relative to this repository; override with
-# OPENMW_SRC). Android port patches from patches/openmw-0.51/ are applied
-# to it with `git apply` (idempotent).
+# OPENMW_SRC). The vendored Andiweli openmw051-final Android runtime stack
+# (patches/openmw-0.51-android/) is applied first, then our port series
+# from patches/openmw-0.51/ with `git apply` (all idempotent).
 
 set -e
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -55,7 +56,26 @@ if [[ ! -e $OPENMW_SRC/.git ]]; then
 	exit 1
 fi
 
-echo "==> Applying Android patches to $OPENMW_SRC"
+echo "==> Applying Android runtime stack (Andiweli openmw051-final) to $OPENMW_SRC"
+ANDROID_STACK=$DIR/patches/openmw-0.51-android
+STACK_PATCH=$ANDROID_STACK/0001-ndk-r26-stringstream-compat.patch
+if git -C $OPENMW_SRC apply --check "$STACK_PATCH" 2>/dev/null; then
+	git -C $OPENMW_SRC apply "$STACK_PATCH"
+	echo "    applied $(basename $STACK_PATCH)"
+elif git -C $OPENMW_SRC apply -R --check "$STACK_PATCH" 2>/dev/null; then
+	echo "    already applied: $(basename $STACK_PATCH)"
+else
+	echo "ERROR: stack patch does not apply: $STACK_PATCH"
+	exit 1
+fi
+# The apply-*.py scripts are marker-guarded and idempotent.
+for script in apply-android-runtime-baseline apply-android-gl4es-core-inline \
+	apply-android-graphics-followup apply-android-graphics-followup2 \
+	apply-android-graphics-followup3 apply-android-graphics-followup4; do
+	python3 $ANDROID_STACK/$script.py $OPENMW_SRC | sed 's/^/    /'
+done
+
+echo "==> Applying Android port patches to $OPENMW_SRC"
 for p in $DIR/patches/openmw-0.51/*.patch; do
 	if git -C $OPENMW_SRC apply --check "$p" 2>/dev/null; then
 		git -C $OPENMW_SRC apply "$p"

@@ -229,6 +229,33 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
+     * OpenMW 0.51 ships engine-owned Morrowind compatibility scripts below
+     * resources/vfs-mw. Register that path as a data source before the user's
+     * game data so engine fallbacks load first and enabled content can still
+     * override them. Re-run on every launch: a stale vfs-mw line from an older
+     * deployment would otherwise swallow the "data" key write below.
+     */
+    private fun ensureVfsMwDataPath() {
+        val configFile = File(Constants.OPENMW_CFG)
+        if (!configFile.isFile)
+            return
+
+        val internalLine = "data=\"" + Constants.RESOURCES + "/vfs-mw\""
+        val filtered = configFile.readLines()
+            .filterNot { it.trim().startsWith("data=") && it.contains("/resources/vfs-mw") }
+            .toMutableList()
+        val firstData = filtered.indexOfFirst { it.trim().startsWith("data=") }
+        if (firstData >= 0)
+            filtered.add(firstData, internalLine)
+        else
+            filtered.add(internalLine)
+        configFile.writeText(filtered.joinToString("\n", postfix = "\n"))
+
+        if (!File(Constants.RESOURCES, "vfs-mw/scripts/omw/esmfallbacks.lua").isFile())
+            Log.e(TAG, "OpenMW 0.51 vfs-mw fallback script is missing")
+    }
+
+    /**
      * Determines required screen scaling based on resolution and physical size of the device
      */
     private fun determineScaling(): Float {
@@ -371,6 +398,8 @@ class MainActivity : AppCompatActivity() {
                 file.Writer.write(Constants.OPENMW_CFG, "data", "\"" + inst.findDataFiles() + "\"")
 
                 file.Writer.write(Constants.OPENMW_CFG, "encoding", prefs!!.getString("pref_encoding", GameInstaller.DEFAULT_CHARSET_PREF)!!)
+
+                ensureVfsMwDataPath()
 
                 configureDefaultsBin(mapOf(
                         "scaling factor" to "%.2f".format(Locale.ROOT, scaling),

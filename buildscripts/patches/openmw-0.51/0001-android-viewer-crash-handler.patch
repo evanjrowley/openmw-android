@@ -1,0 +1,28 @@
+diff --git a/components/debug/debugging.cpp b/components/debug/debugging.cpp
+index ff0404f0d5..054012951d 100644
+--- a/components/debug/debugging.cpp
++++ b/components/debug/debugging.cpp
+@@ -18,6 +18,13 @@
+ 
+ #include <components/crashcatcher/crashcatcher.hpp>
+ #include <components/files/conversion.hpp>
++
++#if defined(__ANDROID__)
++#include <osgViewer/Viewer>
++
++// To share the viewer with Android interfaces; defined in apps/openmw/engine.cpp.
++extern osg::ref_ptr<osgViewer::Viewer> g_viewer;
++#endif
+ #include <components/misc/strings/conversion.hpp>
+ #include <components/misc/strings/lower.hpp>
+ 
+@@ -482,6 +489,9 @@ namespace Debug
+         }
+         catch (const std::exception& e)
+         {
++#if defined(__ANDROID__)
++            g_viewer.release();
++#endif
+ #if (defined(__APPLE__) || defined(__linux) || defined(__unix) || defined(__posix))
+             if (!isatty(fileno(stdin)))
+ #endif

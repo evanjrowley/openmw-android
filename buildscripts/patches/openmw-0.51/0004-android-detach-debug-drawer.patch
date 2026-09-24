@@ -1,0 +1,102 @@
+diff --git a/apps/openmw/mwrender/renderingmanager.cpp b/apps/openmw/mwrender/renderingmanager.cpp
+index 1bd2c76f36..54fd5b0a84 100644
+--- a/apps/openmw/mwrender/renderingmanager.cpp
++++ b/apps/openmw/mwrender/renderingmanager.cpp
+@@ -233,7 +233,12 @@ namespace MWRender
+ 
+         mDebugDraw = new Debug::DebugDrawer(mResourceSystem->getSceneManager()->getShaderManager());
+         mDebugDraw->setNodeMask(Mask_Debug);
++        // (openmw) GLES2/gl4es: the debug program yields no per-context
++        // program object, crashing DebugCustomDraw::drawImplementation when
++        // drawn. Nothing in normal gameplay needs it - keep it detached.
++#ifndef ANDROID
+         sceneRoot->addChild(mDebugDraw);
++#endif
+ 
+         mResourceSystem->getSceneManager()->setIncrementalCompileOperation(mViewer->getIncrementalCompileOperation());
+ 
+@@ -265,6 +270,10 @@ namespace MWRender
+         rootNode->addCullCallback(mPerViewUniformStateUpdater);
+ 
+         mPostProcessor = new PostProcessor(*this, viewer, mRootNode, resourceSystem->getVFS());
++#ifdef ANDROID
++        // OPENMW_ANDROID_051_CPU_SUN_OCCLUSION
++        mPostProcessor->getStateUpdater()->setSunOcclusion(1.f);
++#endif
+         resourceSystem->getSceneManager()->setOpaqueDepthTex(
+             mPostProcessor->getTexture(PostProcessor::Tex_OpaqueDepth, 0),
+             mPostProcessor->getTexture(PostProcessor::Tex_OpaqueDepth, 1));
+@@ -517,6 +526,14 @@ namespace MWRender
+         // This is based on the exterior sun orbit and won't make sense for interiors, see WeatherManager::update
+         position.z() = 400.f - std::abs(position.x());
+ 
++#ifdef ANDROID
++        // OPENMW_ANDROID_051_CPU_SUN_OCCLUSION
++        // Sun::setDirection() normalizes this exact visual-disc direction.
++        mAndroidSunDiscDirection = position;
++        if (mAndroidSunDiscDirection.length2() > 0.000001f)
++            mAndroidSunDiscDirection.normalize();
++#endif
++
+         // The sun is not always synchronized with the sunlight because reasons
+         const osg::Vec3f sunlightPos = Settings::shaders().mMatchSunlightToSun ? position : -direction;
+         // need to wrap this in a StateUpdater?
+@@ -648,6 +665,48 @@ namespace MWRender
+         return mSky.get();
+     }
+ 
++#ifdef ANDROID
++    void RenderingManager::updateAndroidSunOcclusion(float dt)
++    {
++        // OPENMW_ANDROID_051_CPU_SUN_OCCLUSION
++        // Rate-limit the expensive scene-graph intersection to 20 Hz, then
++        // smooth the scalar each rendered frame. castRay() already excludes
++        // Sky/Effects/Water/Groundcover while retaining world blockers.
++        const float safeDt = std::max(0.f, dt);
++        mAndroidSunOcclusionRayTimer -= safeDt;
++
++        const auto& postProcessingChain = Settings::postProcessing().mChain.get();
++        const bool useAndroidSunOcclusion = Settings::postProcessing().mEnabled
++            && std::find(postProcessingChain.begin(), postProcessingChain.end(), "lensflare_android_051_rayocc")
++                != postProcessingChain.end();
++
++        if (useAndroidSunOcclusion && mAndroidSunOcclusionRayTimer <= 0.f
++            && mAndroidSunDiscDirection.length2() > 0.5f)
++        {
++            mAndroidSunOcclusionRayTimer = 0.05f;
++
++            const osg::Vec3d& cameraPos = mCamera->getPosition();
++            osg::Vec3f origin(static_cast<float>(cameraPos.x()), static_cast<float>(cameraPos.y()),
++                static_cast<float>(cameraPos.z()));
++            origin += mAndroidSunDiscDirection * 4.f;
++
++            const float rayDistance = std::max(mViewDistance, 1000.f);
++            const osg::Vec3f dest = origin + mAndroidSunDiscDirection * rayDistance;
++            const RayResult hit = castRay(origin, dest, true, false);
++
++            mAndroidSunOcclusionTarget = hit.mHit ? 0.f : 1.f;
++        }
++        else if (!useAndroidSunOcclusion)
++            mAndroidSunOcclusionTarget = 1.f;
++
++        const float responseSpeed = mAndroidSunOcclusionTarget < mAndroidSunOcclusion ? 18.f : 10.f;
++        const float response = std::min(1.f, safeDt * responseSpeed);
++        mAndroidSunOcclusion += (mAndroidSunOcclusionTarget - mAndroidSunOcclusion) * response;
++        mAndroidSunOcclusion = std::max(0.f, std::min(1.f, mAndroidSunOcclusion));
++        mPostProcessor->getStateUpdater()->setSunOcclusion(mAndroidSunOcclusion);
++    }
++#endif
++
+     void RenderingManager::update(float dt, bool paused)
+     {
+         reportStats();
+@@ -679,6 +738,9 @@ namespace MWRender
+             updateProjectionMatrix();
+         }
+         mCamera->update(dt, paused);
++#ifdef ANDROID
++        updateAndroidSunOcclusion(dt);
++#endif
+ 
+         bool isUnderwater = mWater->isUnderwater(mCamera->getPosition());
+ 
