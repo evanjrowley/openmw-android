@@ -256,6 +256,54 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
+     * Sets key = value inside [section] of the user settings.cfg, creating the
+     * section when missing and preserving everything else. Used for defaults
+     * the engine does not expose in defaults.bin.
+     */
+    private fun setUserSetting(section: String, key: String, value: String) {
+        val settingsFile = File(Constants.USER_CONFIG, "settings.cfg")
+        if (!settingsFile.isFile)
+            return
+
+        val header = "[$section]"
+        val lines = settingsFile.readText().lines().toMutableList()
+        val keyPrefix = "$key ="
+        var inSection = false
+        var keyLine = -1
+        var insertAt = -1
+
+        for (i in lines.indices) {
+            val trimmed = lines[i].trim()
+            if (trimmed.startsWith("[")) {
+                if (inSection) {
+                    insertAt = i // ran into the next section
+                    break
+                }
+                inSection = trimmed == header
+                if (inSection)
+                    insertAt = i + 1
+                continue
+            }
+            if (inSection && (trimmed == key || trimmed.startsWith(keyPrefix))) {
+                keyLine = i
+                break
+            }
+        }
+
+        val newLine = "$key = $value"
+        when {
+            keyLine >= 0 -> lines[keyLine] = newLine
+            insertAt >= 0 -> lines.add(insertAt, newLine)
+            else -> {
+                lines.add("")
+                lines.add(header)
+                lines.add(newLine)
+            }
+        }
+        settingsFile.writeText(lines.joinToString("\n", postfix = "\n"))
+    }
+
+    /**
      * Determines required screen scaling based on resolution and physical size of the device
      */
     private fun determineScaling(): Float {
@@ -400,6 +448,11 @@ class MainActivity : AppCompatActivity() {
                 file.Writer.write(Constants.OPENMW_CFG, "encoding", prefs!!.getString("pref_encoding", GameInstaller.DEFAULT_CHARSET_PREF)!!)
 
                 ensureVfsMwDataPath()
+
+                // Cap the render loop: the frame limiter defaults to 0
+                // (unlimited), which spins the GPU/CPU flat out on a
+                // fixed-refresh panel and heats the device for no gain.
+                setUserSetting("Video", "framerate limit", "60")
 
                 configureDefaultsBin(mapOf(
                         "scaling factor" to "%.2f".format(Locale.ROOT, scaling),
