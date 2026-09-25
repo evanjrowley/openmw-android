@@ -76,6 +76,15 @@ jobs:
           set -o pipefail
           nix develop -c ./gradlew assembleNightlyDebug --stacktrace 2>&1 | tee gradle.log
 
+      - name: Print gradle failure details
+        if: failure()
+        shell: bash
+        run: |
+          if [ -f gradle.log ]; then
+            grep -nE "What went wrong|Caused by:|FAILED|error:" gradle.log | head -8 | while IFS= read -r l; do echo "::error::$l"; done
+            tail -25 gradle.log | while IFS= read -r l; do echo "::warning::$l"; done
+          fi
+
       - name: Upload build log
         if: failure()
         uses: actions/upload-artifact@v4
