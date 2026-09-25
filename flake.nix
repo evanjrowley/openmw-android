@@ -89,6 +89,10 @@
               export ANDROID_SDK_ROOT="${androidSdk}/libexec/android-sdk"
               export ANDROID_NDK_ROOT="$ANDROID_SDK_ROOT/ndk/${ndkVersion}"
               export ANDROID_NDK_HOME="$ANDROID_NDK_ROOT"
+              # CI runner images preset ANDROID_HOME to their own SDK; AGP 8
+              # fails with "several different paths to the SDK" if it is left
+              # pointing somewhere else than ANDROID_SDK_ROOT.
+              unset ANDROID_HOME || true
 
               echo "[openmw-android-env] NDK: $ANDROID_NDK_ROOT"
               test -d "$ANDROID_NDK_ROOT" || echo "WARNING: NDK missing at $ANDROID_NDK_ROOT"
