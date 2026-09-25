@@ -119,6 +119,19 @@ cmake $OPENMW_SRC \
 	-DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
 	-DCMAKE_INSTALL_PREFIX=$BUILD_DIR/install \
 	-DOPENMW_DEPENDENCIES_DIR=$PREFIX \
+	# Explicit FFmpeg component paths: FindFFmpeg is pkg-config based and
+	# detection is unreliable on fresh CI-style checkouts; the static libs
+	# are already in the prefix.
+	-DFFmpeg_AVCODEC_INCLUDE_DIR=$PREFIX/include \
+	-DFFmpeg_AVCODEC_LIBRARY=$PREFIX/lib/libavcodec.a \
+	-DFFmpeg_AVFORMAT_INCLUDE_DIR=$PREFIX/include \
+	-DFFmpeg_AVFORMAT_LIBRARY=$PREFIX/lib/libavformat.a \
+	-DFFmpeg_AVUTIL_INCLUDE_DIR=$PREFIX/include \
+	-DFFmpeg_AVUTIL_LIBRARY=$PREFIX/lib/libavutil.a \
+	-DFFmpeg_SWSCALE_INCLUDE_DIR=$PREFIX/include \
+	-DFFmpeg_SWSCALE_LIBRARY=$PREFIX/lib/libswscale.a \
+	-DFFmpeg_SWRESAMPLE_INCLUDE_DIR=$PREFIX/include \
+	-DFFmpeg_SWRESAMPLE_LIBRARY=$PREFIX/lib/libswresample.a \
 	-DBUILD_OPENMW=ON \
 	-DBUILD_LAUNCHER=OFF \
 	-DBUILD_OPENCS=OFF \
