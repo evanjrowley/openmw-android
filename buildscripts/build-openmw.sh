@@ -108,6 +108,9 @@ cd $BUILD_DIR
 # gl4es provides desktop GL; satisfy CMake's GLVND-era FindOpenGL checks
 GL4ES=$PREFIX/lib/libGL.so
 
+# Explicit FFmpeg component paths: FindFFmpeg is pkg-config based and
+# detection is unreliable on fresh CI-style checkouts; the static libs
+# are already in the prefix.
 cmake $OPENMW_SRC \
 	-DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_ROOT/build/cmake/android.toolchain.cmake \
 	-DANDROID_ABI=$ABI \
@@ -119,9 +122,6 @@ cmake $OPENMW_SRC \
 	-DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
 	-DCMAKE_INSTALL_PREFIX=$BUILD_DIR/install \
 	-DOPENMW_DEPENDENCIES_DIR=$PREFIX \
-	# Explicit FFmpeg component paths: FindFFmpeg is pkg-config based and
-	# detection is unreliable on fresh CI-style checkouts; the static libs
-	# are already in the prefix.
 	-DFFmpeg_AVCODEC_INCLUDE_DIR=$PREFIX/include \
 	-DFFmpeg_AVCODEC_LIBRARY=$PREFIX/lib/libavcodec.a \
 	-DFFmpeg_AVFORMAT_INCLUDE_DIR=$PREFIX/include \
