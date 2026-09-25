@@ -1351,6 +1351,10 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
         int deviceId = event.getDeviceId();
         int source = event.getSource();
 
+        // DIAG: log every key event reaching the app.
+        android.util.Log.i("SDLKEY", "handleKeyEvent code=" + keyCode + " dev=" + deviceId
+            + " action=" + event.getAction() + " source=" + source);
+
         if (source == InputDevice.SOURCE_UNKNOWN) {
             InputDevice device = InputDevice.getDevice(deviceId);
             if (device != null) {
