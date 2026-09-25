@@ -34,7 +34,10 @@ internal object GamepadEmulator {
             SDLControllerManager.nativeAddJoystick(deviceId, "Virtual", "Virtual",
                 0xbad, 0xf00d,
                 false, -0x1,
-                4, 0, 0, 0)
+                // axis_mask = LEFTX|LEFTY: SDL's Android auto-mapping only adds
+                // leftx/lefty bindings for axis-mask bits, so without this the
+                // virtual stick axes are unbound and the stick does nothing.
+                4, 0x0003, 0, 0)
         }
 
         SDLControllerManager.onNativeJoy(deviceId, stickId * 2, x)
