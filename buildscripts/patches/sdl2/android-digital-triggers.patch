@@ -1,6 +1,6 @@
 --- a/src/joystick/SDL_gamecontroller.c	2025-01-31 18:41:09.000000000 -0500
-+++ b/src/joystick/SDL_gamecontroller.c	2026-09-26 14:49:07.665558688 -0400
-@@ -482,6 +482,24 @@
++++ b/src/joystick/SDL_gamecontroller.c	2026-09-26 16:22:45.073074617 -0400
+@@ -482,6 +482,20 @@
      if (button_mask & (1 << SDL_CONTROLLER_BUTTON_DPAD_RIGHT)) {
          SDL_strlcat(mapping_string, "dpright:b14,", sizeof(mapping_string));
      }
@@ -15,13 +15,35 @@
 +     * a4/a5 bindings above map L2 to the right trigger. Bind a5 to
 +     * lefttrigger and a4 to righttrigger explicitly; bindings added here
 +     * precede the auto-generated ones and HandleJoystickAxis takes the
-+     * first match. */
-+    if (button_mask & (1 << 15)) {
-+        SDL_strlcat(mapping_string, "lefttrigger:a5,", sizeof(mapping_string));
-+        SDL_strlcat(mapping_string, "righttrigger:a4,", sizeof(mapping_string));
-+        SDL_strlcat(mapping_string, "lefttrigger:b15,", sizeof(mapping_string));
-+        SDL_strlcat(mapping_string, "righttrigger:b16,", sizeof(mapping_string));
-+    }
++     * first match. The '+' half-axis prefix declares the true 0..32767 input
++     * range: without it SDL assumes -32768..32767 and the 0-resting axes
++     * read as ~half-pressed, so pulls appear to do nothing. */
      if (axis_mask & (1 << SDL_CONTROLLER_AXIS_LEFTX)) {
          SDL_strlcat(mapping_string, "leftx:a0,", sizeof(mapping_string));
      }
+@@ -495,10 +509,23 @@
+         SDL_strlcat(mapping_string, "righty:a3,", sizeof(mapping_string));
+     }
+     if (axis_mask & (1 << SDL_CONTROLLER_AXIS_TRIGGERLEFT)) {
+-        SDL_strlcat(mapping_string, "lefttrigger:a4,", sizeof(mapping_string));
++        if (button_mask & (1 << 15)) {
++            /* OPENMW_ANDROID_DIGITAL_TRIGGERS: BRAKE is the physical L2;
++             * half-axis input (0..32767) with no competing bindings. */
++            SDL_strlcat(mapping_string, "lefttrigger:+a5,", sizeof(mapping_string));
++            SDL_strlcat(mapping_string, "lefttrigger:b15,", sizeof(mapping_string));
++        } else {
++            SDL_strlcat(mapping_string, "lefttrigger:a4,", sizeof(mapping_string));
++        }
+     }
+     if (axis_mask & (1 << SDL_CONTROLLER_AXIS_TRIGGERRIGHT)) {
+-        SDL_strlcat(mapping_string, "righttrigger:a5,", sizeof(mapping_string));
++        if (button_mask & (1 << 15)) {
++            /* OPENMW_ANDROID_DIGITAL_TRIGGERS: GAS is the physical R2. */
++            SDL_strlcat(mapping_string, "righttrigger:+a4,", sizeof(mapping_string));
++            SDL_strlcat(mapping_string, "righttrigger:b16,", sizeof(mapping_string));
++        } else {
++            SDL_strlcat(mapping_string, "righttrigger:a5,", sizeof(mapping_string));
++        }
+     }
+ 
+     return SDL_PrivateAddMappingForGUID(guid, mapping_string, &existing, SDL_CONTROLLER_MAPPING_PRIORITY_DEFAULT);
