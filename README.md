@@ -139,12 +139,11 @@ below are what made the 0.51 port possible.
   Original Java code by sandstranger, Ilya Zhuravlev (xyzz) and
   contributors; build scripts originally by sandstranger and bwhaines.
 - **[Andiweli/OpenMW-Android](https://github.com/Andiweli/OpenMW-Android)**
-  — the OpenMW 0.51 Android runtime this port adopted (their
-  `openmw051-final` patch stack, vendored under
-  `buildscripts/patches/openmw-0.51-android/` and applied by the engine
-  build): GL4ES shader compatibility, the post-processing and shadow
-  rework, explicit object fog, the surface lifecycle bridge, the loading
-  screen and controller-input fixes, and much of the current on-device
+  — the OpenMW 0.51 Android runtime this port adopted (their patch stack,
+   vendored under `buildscripts/patches/openmw-0.51-android/` and applied
+  by the engine build): GL4ES shader compatibility, the post-processing
+  and shadow rework, explicit object fog, the surface lifecycle bridge, the
+  loading screen and controller-input fixes, and much of the current on-device
   behavior. © Andiweli and contributors.
 
 ### Libraries and translation layer
@@ -157,7 +156,7 @@ below are what made the 0.51 port possible.
 - **[libsdl-org/SDL](https://github.com/libsdl-org/SDL)** (release-2.30.12)
   — window, input and EGL glue, with an Android controller-mapping patch
   under `buildscripts/patches/sdl2/`.
-- **[codekidlabs/StorageChooser](https://github.com/codekidlabs/StorageChooser)**
+- **[codekidX/storage-chooser](https://github.com/codekidX/storage-chooser)**
   (vendored under `storagechooser/`) — the in-app game-directory picker.
 - The remaining dependency layer builds from upstream releases: Boost
   1.83, OpenAL 1.23.1, FFmpeg 6.1.2, LuaJIT, lz4, freetype, libpng,
@@ -182,9 +181,7 @@ below are what made the 0.51 port possible.
 
 - **[ZCode](https://z.ai)** — the AI coding agent used to develop this fork
   end to end (the 0.51.0 port, the Android runtime patches, the build
-  system and CI), powered by **GLM-5.3-Flash** from
-  [Z.ai / Zhipu AI](https://docs.z.ai/devpack/notice/event-glm-5.3-flash)
-  (the September 2026 GLM-5.3-Flash Usage Campaign). All AI-generated work was developed
-  and verified inside an isolated development VM to compensate for both
-  [known and realized risks](https://news.ycombinator.com/item?id=49750694) of
-  AI-driven coding.
+  system and CI), powered by **GLM-5.3-Flash** from Z.ai / Zhipu AI's
+  [September 2026 GLM-5.3-Flash Usage Campaign](https://docs.z.ai/devpack/notice/event-glm-5.3-flash). 
+  All AI-generated work was developed and verified inside an isolated
+  development VM to compensate for both [known and realized risks](https://news.ycombinator.com/item?id=49750694).
