@@ -1,6 +1,6 @@
 --- a/src/joystick/SDL_gamecontroller.c	2025-01-31 18:41:09.000000000 -0500
-+++ b/src/joystick/SDL_gamecontroller.c	2026-09-24 20:47:42.587392784 -0400
-@@ -482,6 +482,16 @@
++++ b/src/joystick/SDL_gamecontroller.c	2026-09-26 14:49:07.665558688 -0400
+@@ -482,6 +482,24 @@
      if (button_mask & (1 << SDL_CONTROLLER_BUTTON_DPAD_RIGHT)) {
          SDL_strlcat(mapping_string, "dpright:b14,", sizeof(mapping_string));
      }
@@ -9,8 +9,16 @@
 +     * bind them to the trigger outputs so digital trigger mode works.
 +     * NOTE: the button mask stored in the GUID is only 16 bits wide, so bit
 +     * 16 (R2) is truncated away before we get here - bit 15 (L2) implies the
-+     * device has digital triggers, so bind both buttons together. */
++     * device has digital triggers, so bind both buttons together.
++     * The analog trigger axes are swapped on these devices too: BRAKE (the
++     * physical L2) enumerates after GAS (the physical R2), so the positional
++     * a4/a5 bindings above map L2 to the right trigger. Bind a5 to
++     * lefttrigger and a4 to righttrigger explicitly; bindings added here
++     * precede the auto-generated ones and HandleJoystickAxis takes the
++     * first match. */
 +    if (button_mask & (1 << 15)) {
++        SDL_strlcat(mapping_string, "lefttrigger:a5,", sizeof(mapping_string));
++        SDL_strlcat(mapping_string, "righttrigger:a4,", sizeof(mapping_string));
 +        SDL_strlcat(mapping_string, "lefttrigger:b15,", sizeof(mapping_string));
 +        SDL_strlcat(mapping_string, "righttrigger:b16,", sizeof(mapping_string));
 +    }
