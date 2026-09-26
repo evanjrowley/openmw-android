@@ -8,6 +8,11 @@ Retroid Pocket 6.
 
 Actively developed on the `openmw-0.51` branch.
 
+> [!NOTE]
+> This fork was **vibe coded** — the entire 0.51.0 update was developed with
+> an AI coding agent. See
+> [Credits — Artificial Intelligence (AI)](#artificial-intelligence-ai).
+
 ## Status
 
 * The engine is upstream **OpenMW 0.51.0** with an Android runtime patch
@@ -172,3 +177,14 @@ below are what made the 0.51 port possible.
   [actions/cache](https://github.com/actions/cache) and
   [actions/upload-artifact](https://github.com/actions/upload-artifact) —
   the CI pipeline in `.github/workflows/ci.yml`.
+
+### Artificial Intelligence (AI)
+
+- **[ZCode](https://z.ai)** — the AI coding agent used to develop this fork
+  end to end (the 0.51.0 port, the Android runtime patches, the build
+  system and CI), powered by **GLM-5.3-Flash** from
+  [Z.ai / Zhipu AI](https://docs.z.ai/devpack/notice/event-glm-5.3-flash)
+  (the GLM-5.3-Flash Usage Campaign). All AI-generated work was developed
+  and verified inside an isolated development VM to compensate for the
+  [known risks](https://news.ycombinator.com/item?id=49750694) of
+  AI-driven coding.
