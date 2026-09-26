@@ -1,6 +1,26 @@
 --- a/src/joystick/SDL_gamecontroller.c	2025-01-31 18:41:09.000000000 -0500
-+++ b/src/joystick/SDL_gamecontroller.c	2026-09-26 16:22:45.073074617 -0400
-@@ -482,6 +482,20 @@
++++ b/src/joystick/SDL_gamecontroller.c	2026-09-26 16:59:30.710575383 -0400
+@@ -236,6 +236,19 @@
+                 float normalized_value = (float)(value - match->input.axis.axis_min) / (match->input.axis.axis_max - match->input.axis.axis_min);
+                 value = match->output.axis.axis_min + (int)(normalized_value * (match->output.axis.axis_max - match->output.axis.axis_min));
+             }
++            /* OPENMW_ANDROID_TRIGGER_DIAG: rate-limited trace of trigger-axis
++             * binding decisions, for auditing the Retroid trigger modes. */
++            if ((match->output.axis.axis == SDL_CONTROLLER_AXIS_TRIGGERLEFT ||
++                 match->output.axis.axis == SDL_CONTROLLER_AXIS_TRIGGERRIGHT) &&
++                value != (Sint16)gamecontroller->last_match_axis[match->output.axis.axis] - 0) {
++                static Uint32 last_log;
++                Uint32 now = SDL_GetTicks();
++                if (!last_log || now - last_log > 200) {
++                    last_log = now;
++                    SDL_Log("DIAG TRIG: in a%d=%d -> out t%d=%d (binding idx %d)", axis, value,
++                            match->output.axis.axis, (Sint16)value, (int)(match - gamecontroller->bindings));
++                }
++            }
+             SDL_PrivateGameControllerAxis(gamecontroller, match->output.axis.axis, (Sint16)value);
+         } else {
+             Uint8 state;
+@@ -482,6 +495,20 @@
      if (button_mask & (1 << SDL_CONTROLLER_BUTTON_DPAD_RIGHT)) {
          SDL_strlcat(mapping_string, "dpright:b14,", sizeof(mapping_string));
      }
@@ -21,15 +41,16 @@
      if (axis_mask & (1 << SDL_CONTROLLER_AXIS_LEFTX)) {
          SDL_strlcat(mapping_string, "leftx:a0,", sizeof(mapping_string));
      }
-@@ -495,10 +509,23 @@
+@@ -495,10 +522,24 @@
          SDL_strlcat(mapping_string, "righty:a3,", sizeof(mapping_string));
      }
      if (axis_mask & (1 << SDL_CONTROLLER_AXIS_TRIGGERLEFT)) {
 -        SDL_strlcat(mapping_string, "lefttrigger:a4,", sizeof(mapping_string));
 +        if (button_mask & (1 << 15)) {
-+            /* OPENMW_ANDROID_DIGITAL_TRIGGERS: BRAKE is the physical L2;
-+             * half-axis input (0..32767) with no competing bindings. */
-+            SDL_strlcat(mapping_string, "lefttrigger:+a5,", sizeof(mapping_string));
++            /* OPENMW_ANDROID_DIGITAL_TRIGGERS: the Retroid reports the
++             * physical L2 on GAS and R2 on BRAKE; bind both the analog axis
++             * and the digital button (15) to the left trigger output. */
++            SDL_strlcat(mapping_string, "lefttrigger:+a4,", sizeof(mapping_string));
 +            SDL_strlcat(mapping_string, "lefttrigger:b15,", sizeof(mapping_string));
 +        } else {
 +            SDL_strlcat(mapping_string, "lefttrigger:a4,", sizeof(mapping_string));
@@ -38,8 +59,8 @@
      if (axis_mask & (1 << SDL_CONTROLLER_AXIS_TRIGGERRIGHT)) {
 -        SDL_strlcat(mapping_string, "righttrigger:a5,", sizeof(mapping_string));
 +        if (button_mask & (1 << 15)) {
-+            /* OPENMW_ANDROID_DIGITAL_TRIGGERS: GAS is the physical R2. */
-+            SDL_strlcat(mapping_string, "righttrigger:+a4,", sizeof(mapping_string));
++            /* OPENMW_ANDROID_DIGITAL_TRIGGERS: BRAKE is the physical R2. */
++            SDL_strlcat(mapping_string, "righttrigger:+a5,", sizeof(mapping_string));
 +            SDL_strlcat(mapping_string, "righttrigger:b16,", sizeof(mapping_string));
 +        } else {
 +            SDL_strlcat(mapping_string, "righttrigger:a5,", sizeof(mapping_string));
