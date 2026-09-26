@@ -184,7 +184,7 @@ below are what made the 0.51 port possible.
   end to end (the 0.51.0 port, the Android runtime patches, the build
   system and CI), powered by **GLM-5.3-Flash** from
   [Z.ai / Zhipu AI](https://docs.z.ai/devpack/notice/event-glm-5.3-flash)
-  (the GLM-5.3-Flash Usage Campaign). All AI-generated work was developed
+  (the September 2026 GLM-5.3-Flash Usage Campaign). All AI-generated work was developed
   and verified inside an isolated development VM to compensate for both
   [known and realized risks](https://news.ycombinator.com/item?id=49750694) of
   AI-driven coding.
