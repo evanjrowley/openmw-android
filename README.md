@@ -121,10 +121,54 @@ that the engine build applies first.
 
 ## Credits
 
+This port stands on several sources. The branches, patches and projects
+below are what made the 0.51 port possible.
+
 ### Source code
 
-Original Java code written by sandstranger. Build scripts originally written
-by sandstranger and bwhaines. OpenMW 0.51 Android runtime patches adapted in
-part from the Andiweli/OpenMW-Android reference port. Upstream engine:
-[OpenMW](https://openmw.org/). This fork builds on the archived
-[xyzz/openmw-android](https://github.com/xyzz/openmw-android) codebase.
+- **[OpenMW](https://github.com/OpenMW/openmw)** (tag `openmw-0.51.0`) —
+  the engine itself, cross-built from upstream source. © The OpenMW team,
+  GPL-3.0. Home page: [openmw.org](https://openmw.org/).
+- **[xyzz/openmw-android](https://github.com/xyzz/openmw-android)** — the
+  base codebase this fork continues (the archived 0.48-era Android port).
+  Original Java code by sandstranger, Ilya Zhuravlev (xyzz) and
+  contributors; build scripts originally by sandstranger and bwhaines.
+- **[Andiweli/OpenMW-Android](https://github.com/Andiweli/OpenMW-Android)**
+  — the OpenMW 0.51 Android runtime this port adopted (their
+  `openmw051-final` patch stack, vendored under
+  `buildscripts/patches/openmw-0.51-android/` and applied by the engine
+  build): GL4ES shader compatibility, the post-processing and shadow
+  rework, explicit object fog, the surface lifecycle bridge, the loading
+  screen and controller-input fixes, and much of the current on-device
+  behavior. © Andiweli and contributors.
+
+### Libraries and translation layer
+
+- **[ptitSeb/gl4es](https://github.com/ptitSeb/gl4es)** and the
+  **[sisah2/gl4es](https://github.com/sisah2/gl4es)** fork (pinned
+  `5ac069d8`, built with the patches under `buildscripts/patches/gl4es/`) —
+  the desktop-OpenGL-to-GLES translation layer that lets the 0.51 renderer
+  run on Adreno GLES2. © ptitSeb, sisah2 and contributors.
+- **[libsdl-org/SDL](https://github.com/libsdl-org/SDL)** (release-2.30.12)
+  — window, input and EGL glue, with an Android controller-mapping patch
+  under `buildscripts/patches/sdl2/`.
+- **[codekidlabs/StorageChooser](https://github.com/codekidlabs/StorageChooser)**
+  (vendored under `storagechooser/`) — the in-app game-directory picker.
+- The remaining dependency layer builds from upstream releases: Boost
+  1.83, OpenAL 1.23.1, FFmpeg 6.1.2, LuaJIT, lz4, freetype, libpng,
+  libjpeg-turbo, sqlite, YAML-CPP, RecastNavigation, Bullet, MyGUI 3.4.3
+  and [ICU 70.1](https://github.com/unicode-org/icu/releases/tag/release-70-1)
+  (the host build required by OpenMW's ICU cross-build).
+
+### Build and CI tooling
+
+- **[Nix](https://github.com/NixOS/nix)** and
+  [NixOS/nixpkgs](https://github.com/NixOS/nixpkgs) — the declarative build
+  environment (`flake.nix`: Android SDK/NDK r28.2, OpenJDK 17, cmake,
+  ninja, ccache).
+- [DeterminateSystems/nix-installer-action](https://github.com/DeterminateSystems/nix-installer-action),
+  [nix-community/cache-nix-action](https://github.com/nix-community/cache-nix-action)
+  and GitHub's official [actions/checkout](https://github.com/actions/checkout),
+  [actions/cache](https://github.com/actions/cache) and
+  [actions/upload-artifact](https://github.com/actions/upload-artifact) —
+  the CI pipeline in `.github/workflows/ci.yml`.
